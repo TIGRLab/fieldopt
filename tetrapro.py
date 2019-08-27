@@ -196,13 +196,10 @@ def estimate_partial_parcel(coord,vox,parcels,out,n_iter=300):
         if resample:
             i -= 1
 
-
-
-
 @numba.njit(parallel=True)
-def tetrahedral_projection(node_list,coord_arr,ribbon,affine,n_iter=300):
+def tetrahedral_parcel_projection(node_list,coord_arr,ribbon,affine,n_iter=300):
     '''
-    Perform tetrahedral projection
+    Perform tetrahedral projection (parcellation version)
         node_list                           List of tetrahedral nodes
         coord_arr                           Coordinate list (length=n) in groups of 3 for each node
         ribbon                              3D array containing parcels
@@ -225,10 +222,10 @@ def tetrahedral_projection(node_list,coord_arr,ribbon,affine,n_iter=300):
 
         #Get coordinates for nodes
         t_coord = np.zeros((4,3),dtype=np.float64)
-        t_coord[0,:] = coord_arr[3*node_list[i,0]:(3*node_list[i,0])+3]
-        t_coord[1,:] = coord_arr[3*node_list[i,1]:(3*node_list[i,1])+3]
-        t_coord[2,:] = coord_arr[3*node_list[i,2]:(3*node_list[i,2])+3]
-        t_coord[3,:] = coord_arr[3*node_list[i,3]:(3*node_list[i,3])+3]
+        t_coord[0,:] = coord_arr.flat[3*node_list[i,0]:(3*node_list[i,0])+3]
+        t_coord[1,:] = coord_arr.flat[3*node_list[i,1]:(3*node_list[i,1])+3]
+        t_coord[2,:] = coord_arr.flat[3*node_list[i,2]:(3*node_list[i,2])+3]
+        t_coord[3,:] = coord_arr.flat[3*node_list[i,3]:(3*node_list[i,3])+3]
 
         #Step 1: Transform coordinates to MR space
         t_coord[0:1,:] = homogenous_transform(t_coord[0:1,:],inv_affine)
@@ -248,3 +245,86 @@ def tetrahedral_projection(node_list,coord_arr,ribbon,affine,n_iter=300):
         estimate_partial_parcel(t_coord,vox_arr,parcels,out_arr[i,:],n_iter)
 
     return out_arr/n_iter
+
+
+@numba.njit(parallel=True)
+def tetrahedral_weight_projection(node_list,coord_arr,ribbon,affine,n_iter=300):
+    '''
+    Perform tetrahedral projection (parcellation version)
+        node_list                           List of tetrahedral nodes
+        coord_arr                           Coordinate list (length=n) in groups of 3 for each node
+        ribbon                              3D array containing parcels
+        affine                              Affine transformation matrix associated with ribbon
+    '''
+    #Compute inverse affine
+    inv_affine = np.linalg.inv(affine)
+
+    #Loop tetrahedrons
+    num_elem=node_list.shape[0]
+
+    #make output array
+    out_arr = np.zeros((num_elem), dtype=np.float64)
+
+    for i in numba.prange(0,num_elem):
+
+        #Get coordinates for nodes
+        t_coord = np.zeros((4,3),dtype=np.float64)
+        t_coord[0,:] = coord_arr.flat[3*node_list[i,0]:(3*node_list[i,0])+3]
+        t_coord[1,:] = coord_arr.flat[3*node_list[i,1]:(3*node_list[i,1])+3]
+        t_coord[2,:] = coord_arr.flat[3*node_list[i,2]:(3*node_list[i,2])+3]
+        t_coord[3,:] = coord_arr.flat[3*node_list[i,3]:(3*node_list[i,3])+3]
+
+        #Step 1: Transform coordinates to MR space
+        t_coord[0:1,:] = homogenous_transform(t_coord[0:1,:],inv_affine)
+        t_coord[1:2,:] = homogenous_transform(t_coord[1:2,:],inv_affine)
+        t_coord[2:3,:] = homogenous_transform(t_coord[2:3,:],inv_affine)
+        t_coord[3:4,:] = homogenous_transform(t_coord[3:4,:],inv_affine)
+
+        #Step 2: Perform axis-aligned boundary box finding
+        vox_arr = aabb_voxels(t_coord)
+
+        #Step 3: Iterate through voxels and compute weights
+        weights = np.zeros((vox_arr.shape[1] + 1),np.int32)
+        for j in np.arange(vox_arr.shape[1]):
+            weights[j] = ribbon[vox_arr[0,j],vox_arr[1,j],vox_arr[2,j]]
+
+        #Step 4: Estimate weighted score
+        estimate_partial_weights(t_coord,vox_arr,weights,out_arr[i:i+1],n_iter)
+
+    return out_arr/n_iter
+
+
+@numba.njit
+def estimate_partial_weights(coord,vox,weights,out,n_iter=300):
+    '''
+    Arguments:
+        coord               (4,3) indexable iterable of tetrahedral coordinates
+        vox                 (n,3) indexable iterable of voxel coordinates
+        weights             (n,1) indexable iterable of weight associated with jth voxel coordinate
+        out                  A reference to an array (slice) to be written into
+        iter                 Number of Monte-Carlo sampling interations
+
+    For each sampling point in tetrahedron check voxel membership. If membership is determined
+    then add corresponding weight to out (accumulating score)
+    '''
+
+    #No degenerate case exists
+    #Shift tetrahedron to origin
+    t = coord[0]
+    coord = coord - t
+
+    #Perform fixed monte carlo sampling
+    for i in np.arange(0,n_iter):
+
+        resample = True
+        p = uniform_tet(coord)
+        for j in np.arange(0,vox.shape[1]):
+
+            #If point is in voxel, then move on
+            if point_in_vox(p+t, vox[:,j]):
+                resample = False
+                out += weights[j]
+                break
+
+        if resample:
+            i -= 1
