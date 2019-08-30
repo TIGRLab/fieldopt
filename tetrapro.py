@@ -222,10 +222,18 @@ def tetrahedral_parcel_projection(node_list,coord_arr,ribbon,affine,n_iter=300):
 
         #Get coordinates for nodes
         t_coord = np.zeros((4,3),dtype=np.float64)
-        t_coord[0,:] = coord_arr.flat[3*node_list[i,0]:(3*node_list[i,0])+3]
-        t_coord[1,:] = coord_arr.flat[3*node_list[i,1]:(3*node_list[i,1])+3]
-        t_coord[2,:] = coord_arr.flat[3*node_list[i,2]:(3*node_list[i,2])+3]
-        t_coord[3,:] = coord_arr.flat[3*node_list[i,3]:(3*node_list[i,3])+3]
+
+        #Set up arrays for indexing
+        i_1 = get_vertex_range(node_list,i,0,3)
+        i_2 = get_vertex_range(node_list,i,1,3)
+        i_3 = get_vertex_range(node_list,i,2,3)
+        i_4 = get_vertex_range(node_list,i,3,3)
+
+        #Linear indexing
+        t_coord[0,:] = linear_coord[i_1]
+        t_coord[1,:] = linear_coord[i_2]
+        t_coord[2,:] = linear_coord[i_3]
+        t_coord[3,:] = linear_coord[i_4]
 
         #Step 1: Transform coordinates to MR space
         t_coord[0:1,:] = homogenous_transform(t_coord[0:1,:],inv_affine)
