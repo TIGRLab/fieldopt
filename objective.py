@@ -5,9 +5,9 @@ import os
 import gc
 
 import numpy as np
-from backports import tempfile #python 2 workaround for lack of context in tempfile
+import tempfile
 from fieldopt import geolib
-from simnibs import sim_struct, run_simulation
+from simnibs import sim_struct, run_simnibs
 from functools import wraps
 
 class FieldFunc():
@@ -93,7 +93,8 @@ class FieldFunc():
             p.matsimnibs = matsimnibs[i]
             tms.add_position(p)
 
-        sim_files = S.run_simulatons(cpus=self.cpus)
+        sim_files = run_simnibs(S,self.cpus)
+        #sim_files = S.run_simulatons(cpus=self.cpus)
 
         #Needed since simNIBS is bad about circular referencing
         del S
