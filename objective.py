@@ -82,6 +82,7 @@ class FieldFunc():
         '''
 
         S = sim_struct.SESSION()
+        S.open_in_gmsh = False
         S.fnamehead = self.mesh
         S.pathfem = sim_dir
 
