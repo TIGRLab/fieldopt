@@ -2,15 +2,12 @@
 # coding: utf-8
 
 import os
-import gc
-
-import numpy as np
 import tempfile
-from fieldopt import geolib
+import numpy as np
 from simnibs import cond
 from simnibs.msh import mesh_io
 from simnibs.simulation.fem import tms_coil
-from functools import wraps
+from fieldopt import geolib
 
 
 class FieldFunc():
@@ -131,13 +128,14 @@ class FieldFunc():
 
     def evaluate(self, input_list):
         '''
-        Given a quadratic surface input (x,y) and rotational interpolation angle (theta)
-        compute the resulting field score over a region of interest
+        Given a quadratic surface input (x,y) and rotational
+        interpolation angle (theta) compute the resulting field score
+        over a region of interest
         Arguments:
-            [(x,y,theta),...]                   A iterable of iterable (x,y,theta)
+            [(x,y,theta),...]           A iterable of iterable (x,y,theta)
 
         Returns:
-            scores                              An array of scores in order of inputs
+            scores                      An array of scores in order of inputs
         '''
 
         with tempfile.TemporaryDirectory(dir=self.field_dir) as sim_dir:
