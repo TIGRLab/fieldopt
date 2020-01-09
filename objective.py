@@ -7,36 +7,49 @@ import gc
 import numpy as np
 import tempfile
 from fieldopt import geolib
-from simnibs import sim_struct, run_simnibs
+from simnibs import cond
+from simnibs.msh import mesh_io
+from simnibs.simulation.fem import tms_coil
 from functools import wraps
+
 
 class FieldFunc():
 
-    FIELD_ENTITY = (3,2)
-
+    FIELD_ENTITY = (3, 2)
+    FIELDS = ['E', 'e', 'J', 'j']
     '''
-    This class provides an interface in which the details related to simulation and score extraction
-    is abstracted away for any general Bayesian Optimization package
+    This class provides an interface in which the details related
+    to simulation and score extraction is abstracted away for
+    any general Bayesian Optimization package
 
     Layout
     Properties:
         1. Mesh file to perform simulation on
-        2. Store details surrounding the input --> surface transformations (use file paths?)
+        2. Store details surrounding the input -->
+            surface transformations (use file paths?)
 
     '''
-
-    def __init__(self, mesh_file, quad_surf_consts,
-            surf_to_mesh_matrix, tet_weights, field_dir, coil,
-            cpus=1):
+    def __init__(self,
+                 mesh_file,
+                 quad_surf_consts,
+                 surf_to_mesh_matrix,
+                 tet_weights,
+                 field_dir,
+                 coil,
+                 didt=1e6,
+                 cpus=1):
         '''
         Standard constructor
         Arguments:
             mesh_file                   Path to FEM model
             quad_surf_consts            Quadratic surface constants
             surf_to_mesh_matrix         (3,3) affine transformation matrix
-            tet_weights                 Weighting scores for each tetrahedron (1D array ordered by node ID)
-            field_dir                   Directory to perform simulation experiments in
-            coil                        TMS coil file (either dA/dt volume or coil geometry)
+            tet_weights                 Weighting scores for each tetrahedron
+                                        (1D array ordered by node ID)
+            field_dir                   Directory to perform simulation
+                                        experiments in
+            coil                        TMS coil file (either dA/dt volume or
+                                        coil geometry)
         '''
 
         self.mesh = mesh_file
@@ -45,8 +58,15 @@ class FieldFunc():
         self.tw = tet_weights
         self.field_dir = field_dir
         self.coil = coil
+        self.didt = didt
         self.cpus = cpus
 
+        # Store single read in memory, this will prevent GC issues
+        # and will force only a single slow read of the file
+        self.cached_mesh = mesh_io.read_msh(mesh_file)
+        self.cached_mesh.fix_surface_labels()
+        condlist = [c.value for c in cond.standard_cond()]
+        self.cond = cond.cond2elmdata(self.cached_mesh, condlist)
 
     def __repr__(self):
         '''
@@ -64,7 +84,7 @@ class FieldFunc():
         quadratic surface sampling domain
         '''
 
-        preaff_loc = geolib.map_param_2_surf(x,y,self.C)
+        preaff_loc = geolib.map_param_2_surf(x, y, self.C)
         preaff_rot, preaff_norm = geolib.map_rot_2_surf(x, y, theta, self.C)
 
         loc = np.matmul(self.iR, preaff_loc)
@@ -75,33 +95,30 @@ class FieldFunc():
         return o_matrix
 
     def _run_simulation(self, matsimnibs, sim_dir):
-        '''
-        Arguments:
-            matsimnibs                  Coil orientation matrix (simnibs specification)
-            sim_dir                     Directory to perform simulation experiment
-        '''
 
-        S = sim_struct.SESSION()
-        S.open_in_gmsh = False
-        S.fnamehead = self.mesh
-        S.pathfem = sim_dir
+        # Construct standard inputs
+        didt_list = [self.didt] * len(matsimnibs)
+        simu_name = os.path.join(sim_dir, 'TMS_{}'.format(1))
+        coil_name = os.path.splitext(os.path.basename(self.coil))[0]
 
-        tms = S.add_tmslist()
-        tms.fnamecoil = self.coil
+        fn_simu = [
+            "{0}-{1:0=4d}_{2}_".format(simu_name, i + 1, coil_name)
+            for i in range(len(matsimnibs))
+        ]
+        output_names = [f + 'scalar.msh' for f in fn_simu]
+        geo_names = [f + 'coil_pos.geo' for f in fn_simu]
 
-        for i in np.arange(0,len(matsimnibs)):
-            p = sim_struct.POSITION()
-            p.matsimnibs = matsimnibs[i]
-            tms.add_position(p)
+        tms_coil(self.cached_mesh,
+                 self.cond,
+                 self.coil,
+                 self.FIELDS,
+                 matsimnibs,
+                 didt_list,
+                 output_names,
+                 geo_names,
+                 n_workers=self.cpus)
 
-        sim_files = run_simnibs(S,self.cpus)
-        #sim_files = S.run_simulatons(cpus=self.cpus)
-
-        #Needed since simNIBS is bad about circular referencing
-        del S
-        del tms
-        gc.collect()
-        return sorted(sim_files)
+        return sorted(output_names)
 
     def _calculate_score(self, sim_file):
         '''
@@ -113,7 +130,6 @@ class FieldFunc():
         return np.dot(self.tw, normE)
 
     def evaluate(self, input_list):
-
         '''
         Given a quadratic surface input (x,y) and rotational interpolation angle (theta)
         compute the resulting field score over a region of interest
@@ -126,7 +142,9 @@ class FieldFunc():
 
         with tempfile.TemporaryDirectory(dir=self.field_dir) as sim_dir:
 
-            matsimnibs = [self._transform_input(x,y,t) for x,y,t in input_list]
+            matsimnibs = [
+                self._transform_input(x, y, t) for x, y, t in input_list
+            ]
             sim_files = self._run_simulation(matsimnibs, sim_dir)
             scores = np.array([self._calculate_score(s) for s in sim_files])
 
