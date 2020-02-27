@@ -41,6 +41,7 @@ class FieldFunc():
                  field_dir,
                  coil,
                  span=35,
+                 local_span=3,
                  distance=1,
                  didt=1e6,
                  cpus=1):
@@ -59,21 +60,29 @@ class FieldFunc():
                                         coil geometry)
             span                        Radius of points to include in
                                         sampling surface
+            local_span                  Radius of points to include in
+                                        construction of local geometry
+                                        for normal and curvature estimation
             distance                    Distance from coil to head surface
         '''
 
         self.mesh = mesh_file
-        self.centroid = initial_centroid
-
-        logger.info('Constructing initial sampling surface')
-        self.C, self.iR = self._initialize(span)
-        logger.info('Successfully constructed initial sampling surface')
-
         self.tw = tet_weights
         self.field_dir = field_dir
         self.coil = coil
         self.didt = didt
         self.cpus = cpus
+        self.geo_radius = local_span
+
+        logger.info('Loading in coordinate data from mesh file...')
+        self.nodes, self.coords = geolib.load_gmsh_nodes(self.mesh, (2, 5))
+        _, _, self.trigs = geolib.load_gmsh_elems(self.mesh, (2, 5))
+        logger.info('Successfully pulled in node and element data!')
+
+        # Construct basis of sampling space using centroid
+        logger.info('Constructing initial sampling surface...')
+        self.C, self.iR = self._initialize(initial_centroid, span)
+        logger.info('Successfully constructed initial sampling surface')
 
         # Store single read in memory, this will prevent GC issues
         # and will force only a single slow read of the file
@@ -97,38 +106,65 @@ class FieldFunc():
         print('Field Directory:', self.field_dir)
         return ''
 
-    def _initialize(self, span):
+    def _initialize(self, centroid, span):
         '''
         Construct quadratic basis and rotation at centroid point
         to use for sampling
         '''
 
-        # Step 1: Read nodes and elements from mesh
-        n_tag, n_coord, _ = geolib.load_gmsh_nodes(self.mesh, (2, 5))
-        _, _, tri = geolib.load_gmsh_elems(self.mesh, (2, 5))
+        v = geolib.closest_point2surf(centroid, self.coords)
+        C, R, _ = self._construct_local_quadric(v)
 
-        # Step 2: Get closest point to surface
-        v_centre = geolib.closest_point2surf(self.centroid, n_coord)
+        return C, R.T
 
-        # Step 3: Span nearest points
-        neighbours_ind = np.where(vecnorm(n_coord - v_centre, axis=1) < span)
-        neighbours = n_coord[neighbours_ind]
+    def _construct_local_quadric(self, p):
+        '''
+        Given a single point construct a local quadric
+        surface on a given mesh
+        '''
 
-        # Step 4: Calculate normals of neigbouring values
-        normals = geolib.get_normals(neighbours_ind, n_tag, n_coord, tri)
+        # Get local neighbourhood
+        neighbours_ind = np.where(
+            vecnorm(self.coords - p, axis=1) < self.geo_radius)
+        neighbours = self.coord[neighbours_ind]
 
-        # Step 5: Use average normal
+        # Calculate normals
+        normals = geolib.get_normals(neighbours, self.nodes, self.coord,
+                                     self.trigs)
+
+        # Usage average of normals
         n = np.mean(normals, axis=0)
         n = n / vecnorm(n)
 
-        # Step 6: Perform quadratic fitting procedure
+        # Perform quadratic fitting
         z = np.array([0, 0, 1])
         R = geolib.rotate_vec2vec(n, z)
         r_neighbours = (R @ neighbours.T).T
         C = geolib.quad_fit(r_neighbours[:, :2], r_neighbours[:, 2])
 
-        return R.T, C
+        return C, R, n
 
+    def _construct_sample(self, x, y):
+        '''
+        Given a sampling point, estimate local geometry to
+        get accurate normals/curvatures
+        '''
+
+        p = self.iR @ geolib.map_param_2_surf(x, y, self.C)
+        v = geolib.closest_point2surf(p, self.coords)
+        C, R, n = self._construct_local_quadric(v)
+
+        # Need to invert transformation
+        R = R.T
+
+        # Push closest point by normal
+        n_r = R @ n
+        n_r = n_r / vecnorm(n_r)
+
+        # Push sample out by set distance
+        sample = p + (n_r * self.distance)
+
+        return sample, R, C
 
     def _transform_input(self, x, y, theta):
         '''
@@ -136,14 +172,12 @@ class FieldFunc():
         quadratic surface sampling domain
         '''
 
-        preaff_loc = geolib.map_param_2_surf(x, y, self.C)
-        preaff_rot, preaff_norm = geolib.map_rot_2_surf(x, y, theta, self.C)
+        sample, R, C = self._construct_sample(x, y)
+        preaff_rot, preaff_norm = geolib.map_rot_2_surf(0, 0, theta, C)
+        rot = R @ preaff_rot
+        n = R @ preaff_norm
 
-        loc = np.matmul(self.iR, preaff_loc)
-        rot = np.matmul(self.iR, preaff_rot)
-        n = np.matmul(self.iR, preaff_norm)
-
-        o_matrix = geolib.define_coil_orientation(loc, rot, n)
+        o_matrix = geolib.define_coil_orientation(sample, rot, n)
         return o_matrix
 
     def _run_simulation(self, matsimnibs, sim_dir):
