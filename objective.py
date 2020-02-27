@@ -81,7 +81,7 @@ class FieldFunc():
 
         # Construct basis of sampling space using centroid
         logger.info('Constructing initial sampling surface...')
-        self.C, self.iR = self._initialize(initial_centroid, span)
+        self.C, self.iR, self.bounds = self._initialize(initial_centroid, span)
         logger.info('Successfully constructed initial sampling surface')
 
         # Store single read in memory, this will prevent GC issues
@@ -106,6 +106,10 @@ class FieldFunc():
         print('Field Directory:', self.field_dir)
         return ''
 
+    @property
+    def bounds(self):
+        return self.bounds
+
     def _initialize(self, centroid, span):
         '''
         Construct quadratic basis and rotation at centroid point
@@ -115,7 +119,16 @@ class FieldFunc():
         v = geolib.closest_point2surf(centroid, self.coords)
         C, R, _ = self._construct_local_quadric(v)
 
-        return C, R.T
+        # Calculate neighbours, rotate to flatten on XY plane
+        neighbours_ind = np.where(vecnorm(self.coords - v, axis=1) < span)
+        neighbours = self.coords[neighbours_ind]
+        r_neighbours = (R @ neighbours.T).T
+        minarr = np.min(r_neighbours, axis=0)
+        maxarr = np.max(r_neighbours, axis=0)
+
+        bounds = np.c_[minarr.T, maxarr.T]
+
+        return C, R.T, bounds
 
     def _construct_local_quadric(self, p):
         '''
