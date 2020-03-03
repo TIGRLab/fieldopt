@@ -120,7 +120,7 @@ class FieldFunc():
         '''
 
         v = geolib.closest_point2surf(centroid, self.coords)
-        C, R, _ = self._construct_local_quadric(v, 0.75 * span)
+        C, R = self._construct_local_quadric(v, 0.75 * span)
 
         # Calculate neighbours, rotate to flatten on XY plane
         neighbours_ind = np.where(vecnorm(self.coords - v, axis=1) < span)
@@ -149,7 +149,7 @@ class FieldFunc():
         normals = geolib.get_normals(self.nodes[neighbours_ind], self.nodes,
                                      self.coords, self.trigs)
 
-        # Usage average of normals
+        # Usage average of normals for alignment
         n = np.mean(normals, axis=0)
         n = n / vecnorm(n)
 
@@ -159,7 +159,7 @@ class FieldFunc():
         r_neighbours = (R @ neighbours.T).T
         C = geolib.quad_fit(r_neighbours[:, :2], r_neighbours[:, 2])
 
-        return C, R, n
+        return C, R
 
     def _construct_sample(self, x, y):
         '''
@@ -169,19 +169,18 @@ class FieldFunc():
 
         p = self.iR @ geolib.map_param_2_surf(x, y, self.C)
         v = geolib.closest_point2surf(p, self.coords)
-        C, R, n = self._construct_local_quadric(v, self.geo_radius)
+        C, R = self._construct_local_quadric(v, self.geo_radius)
+        _, _, n = geolib.compute_principal_dir(0, 0, C)
 
-        # Need to invert transformation
+        # Map normal to coordinate space
         R = R.T
-
-        # Push closest point by normal
         n_r = R @ n
         n_r = n_r / vecnorm(n_r)
 
         # Push sample out by set distance
         sample = v + (n_r * self.distance)
 
-        return sample, R, C
+        return sample, R, C, n
 
     def _transform_input(self, x, y, theta):
         '''
@@ -189,7 +188,7 @@ class FieldFunc():
         quadratic surface sampling domain
         '''
 
-        sample, R, C = self._construct_sample(x, y)
+        sample, R, C, _ = self._construct_sample(x, y)
         preaff_rot, preaff_norm = geolib.map_rot_2_surf(0, 0, theta, C)
         rot = R @ preaff_rot
         n = R @ preaff_norm
