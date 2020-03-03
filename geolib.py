@@ -379,10 +379,10 @@ def get_normals(point_tags, all_tags, coords, trigs):
 
     u_val = np.unique(rel_trig)
     u_ind = np.arange(0, u_val.shape[0])
+    sort_map = {v: i for v, i in zip(u_val, u_ind)}
+    map_func = np.vectorize(lambda x: sort_map[x])
 
-    sort_map = np.vectorize(lambda x:
-                            {v: i for v, i in zip(u_val, u_ind)})
-    mapped_trigs = sort_map(rel_trig)
+    mapped_trigs = map_func(rel_trig)
     rel_verts = np.where(np.isin(all_tags, u_val))
     rel_verts_coords = coords[rel_verts, :][0]
 

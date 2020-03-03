@@ -36,12 +36,11 @@ class FieldFunc():
     def __init__(self,
                  mesh_file,
                  initial_centroid,
-                 span,
                  tet_weights,
                  field_dir,
                  coil,
                  span=35,
-                 local_span=3,
+                 local_span=15,
                  distance=1,
                  didt=1e6,
                  cpus=1):
@@ -50,8 +49,6 @@ class FieldFunc():
         Arguments:
             mesh_file                   Path to FEM model
             initial_centroid            Initial point to grow sampling region
-            quad_surf_consts            Quadratic surface constants
-            surf_to_mesh_matrix         (3,3) affine transformation matrix
             tet_weights                 Weighting scores for each tetrahedron
                                         (1D array ordered by node ID)
             field_dir                   Directory to perform simulation
@@ -64,6 +61,8 @@ class FieldFunc():
                                         construction of local geometry
                                         for normal and curvature estimation
             distance                    Distance from coil to head surface
+            didt                        Intensity of stimulation
+            cpus                        Number of cpus to use for simulation
         '''
 
         self.mesh = mesh_file
@@ -73,15 +72,20 @@ class FieldFunc():
         self.didt = didt
         self.cpus = cpus
         self.geo_radius = local_span
+        self.distance = distance
 
         logger.info('Loading in coordinate data from mesh file...')
-        self.nodes, self.coords = geolib.load_gmsh_nodes(self.mesh, (2, 5))
-        _, _, self.trigs = geolib.load_gmsh_elems(self.mesh, (2, 5))
+        self.nodes, self.coords, _ = geolib.load_gmsh_nodes(self.mesh, (2, 5))
+        _, _, trigs = geolib.load_gmsh_elems(self.mesh, (2, 5))
+        self.trigs = np.array(trigs[0]).reshape(-1, 3)
         logger.info('Successfully pulled in node and element data!')
 
         # Construct basis of sampling space using centroid
         logger.info('Constructing initial sampling surface...')
-        self.C, self.iR, self.bounds = self._initialize(initial_centroid, span)
+        C, iR, bounds = self._initialize(initial_centroid, span)
+        self.C = C
+        self.iR = iR
+        self.bounds = bounds
         logger.info('Successfully constructed initial sampling surface')
 
         # Store single read in memory, this will prevent GC issues
@@ -106,8 +110,7 @@ class FieldFunc():
         print('Field Directory:', self.field_dir)
         return ''
 
-    @property
-    def bounds(self):
+    def get_bounds(self):
         return self.bounds
 
     def _initialize(self, centroid, span):
@@ -117,7 +120,7 @@ class FieldFunc():
         '''
 
         v = geolib.closest_point2surf(centroid, self.coords)
-        C, R, _ = self._construct_local_quadric(v)
+        C, R, _ = self._construct_local_quadric(v, 0.75 * span)
 
         # Calculate neighbours, rotate to flatten on XY plane
         neighbours_ind = np.where(vecnorm(self.coords - v, axis=1) < span)
@@ -130,7 +133,7 @@ class FieldFunc():
 
         return C, R.T, bounds
 
-    def _construct_local_quadric(self, p):
+    def _construct_local_quadric(self, p, tol=1e-3):
         '''
         Given a single point construct a local quadric
         surface on a given mesh
@@ -138,12 +141,13 @@ class FieldFunc():
 
         # Get local neighbourhood
         neighbours_ind = np.where(
-            vecnorm(self.coords - p, axis=1) < self.geo_radius)
-        neighbours = self.coord[neighbours_ind]
+            vecnorm(self.coords - p, axis=1) < tol)
+
+        neighbours = self.coords[neighbours_ind]
 
         # Calculate normals
-        normals = geolib.get_normals(neighbours, self.nodes, self.coord,
-                                     self.trigs)
+        normals = geolib.get_normals(self.nodes[neighbours_ind], self.nodes,
+                                     self.coords, self.trigs)
 
         # Usage average of normals
         n = np.mean(normals, axis=0)
@@ -165,7 +169,7 @@ class FieldFunc():
 
         p = self.iR @ geolib.map_param_2_surf(x, y, self.C)
         v = geolib.closest_point2surf(p, self.coords)
-        C, R, n = self._construct_local_quadric(v)
+        C, R, n = self._construct_local_quadric(v, self.geo_radius)
 
         # Need to invert transformation
         R = R.T
@@ -175,7 +179,7 @@ class FieldFunc():
         n_r = n_r / vecnorm(n_r)
 
         # Push sample out by set distance
-        sample = p + (n_r * self.distance)
+        sample = v + (n_r * self.distance)
 
         return sample, R, C
 
@@ -226,20 +230,6 @@ class FieldFunc():
 
         return sorted(output_names)
 
-    def _calculate_score(self, sim_file):
-        '''
-        Given a simulation output file, compute the score
-        '''
-
-        logger.info('Loading gmsh elements from {}...'.format(sim_file))
-        _, elem_ids, _ = geolib.load_gmsh_elems(sim_file, self.FIELD_ENTITY)
-
-        logger.info('Pulling field values from {}...'.format(sim_file))
-        normE = geolib.get_field_subset(sim_file, elem_ids)
-        logger.info('Successfully pulled field values!')
-
-        return np.dot(self.tw, normE)
-
     def run_simulation(self, coord, out_dir):
         '''
         Given a quadratic surface input (x,y) and a rotational
@@ -266,6 +256,20 @@ class FieldFunc():
         logger.info('Successfully pulled scores!')
 
         return sim_file, scores
+
+    def _calculate_score(self, sim_file):
+        '''
+        Given a simulation output file, compute the score
+        '''
+
+        logger.info('Loading gmsh elements from {}...'.format(sim_file))
+        _, elem_ids, _ = geolib.load_gmsh_elems(sim_file, self.FIELD_ENTITY)
+
+        logger.info('Pulling field values from {}...'.format(sim_file))
+        normE = geolib.get_field_subset(sim_file, elem_ids)
+        logger.info('Successfully pulled field values!')
+
+        return np.dot(self.tw, normE)
 
     def evaluate(self, input_list):
         '''
