@@ -10,6 +10,7 @@ from simnibs.msh import mesh_io
 from simnibs.simulation.fem import tms_coil
 from fieldopt import geolib
 import logging
+from shutil import copytree
 
 logging.basicConfig(
     format='[%(levelname)s - %(name)s.%(funcName)5s() ] %(message)s',
@@ -40,7 +41,7 @@ class FieldFunc():
                  field_dir,
                  coil,
                  span=35,
-                 local_span=15,
+                 local_span=8,
                  distance=1,
                  didt=1e6,
                  cpus=1):
@@ -289,7 +290,7 @@ class FieldFunc():
 
         return np.dot(self.tw, normE)
 
-    def evaluate(self, input_list):
+    def evaluate(self, input_list, out_dir=None):
         '''
         Given a quadratic surface input (x,y) and rotational
         interpolation angle (theta) compute the resulting field score
@@ -315,5 +316,10 @@ class FieldFunc():
             scores = np.array([self._calculate_score(s) for s in sim_files])
 
             logger.info('Successfully pulled scores!')
+
+            if out_dir is not None:
+                logger.info('Storing outputs!')
+                copytree(sim_dir, out_dir, dirs_exist_ok=True)
+                logger.info(f'Successfully stored outputs in {out_dir}')
 
         return scores
