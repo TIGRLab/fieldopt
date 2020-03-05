@@ -35,6 +35,16 @@ def skew(vector):
                      [-vector[1], vector[0], 0]])
 
 
+def affine(A, x):
+    '''
+    Apply affine transformation A to vector set x
+    '''
+
+    h = np.c_[x, np.ones((x.shape[0], 1))]
+    Ah = A @ h.T
+    return Ah.T[:, :3]
+
+
 def rotate_vec2vec(v1, v2):
     '''
     Rotate vector v1 --> v2 and return the transformation matrix R that

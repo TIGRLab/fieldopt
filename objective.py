@@ -120,18 +120,19 @@ class FieldFunc():
         '''
 
         v = geolib.closest_point2surf(centroid, self.coords)
-        C, R = self._construct_local_quadric(v, 0.75 * span)
+        C, R, iR = self._construct_local_quadric(v, 0.75 * span)
 
         # Calculate neighbours, rotate to flatten on XY plane
         neighbours_ind = np.where(vecnorm(self.coords - v, axis=1) < span)
         neighbours = self.coords[neighbours_ind]
-        r_neighbours = (R @ neighbours.T).T
+        r_neighbours = geolib.affine(R, neighbours)
         minarr = np.min(r_neighbours, axis=0)
         maxarr = np.max(r_neighbours, axis=0)
 
         bounds = np.c_[minarr.T, maxarr.T]
 
-        return C, R.T, bounds
+
+        return C, iR, bounds
 
     def _construct_local_quadric(self, p, tol=1e-3):
         '''
@@ -153,13 +154,28 @@ class FieldFunc():
         n = np.mean(normals, axis=0)
         n = n / vecnorm(n)
 
-        # Perform quadratic fitting
+        # Make transformation matrix
         z = np.array([0, 0, 1])
-        R = geolib.rotate_vec2vec(n, z)
-        r_neighbours = (R @ neighbours.T).T
+        R = np.eye(4)
+        R[:3, :3] = geolib.rotate_vec2vec(n, z)
+        T = np.eye(4)
+        T[:3, 3] = -p
+        affine = R @ T
+
+        # Create inverse rotation
+        iR = R
+        iR[:3, :3] = iR[:3, :3].T
+
+        # Create inverse translation
+        iT = T
+        iT[:3, 3] = -T[:3, 3]
+        i_affine = iT @ iR
+
+        # Perform quadratic fitting
+        r_neighbours = geolib.affine(affine, neighbours)
         C = geolib.quad_fit(r_neighbours[:, :2], r_neighbours[:, 2])
 
-        return C, R
+        return C, affine, i_affine
 
     def _construct_sample(self, x, y):
         '''
@@ -167,20 +183,20 @@ class FieldFunc():
         get accurate normals/curvatures
         '''
 
-        p = self.iR @ geolib.map_param_2_surf(x, y, self.C)
+        pp = geolib.map_param_2_surf(x, y, self.C)[np.newaxis, :]
+        p = geolib.affine(self.iR, pp)
         v = geolib.closest_point2surf(p, self.coords)
-        C, R = self._construct_local_quadric(v, self.geo_radius)
+        C, _, iR = self._construct_local_quadric(v, self.geo_radius)
         _, _, n = geolib.compute_principal_dir(0, 0, C)
 
         # Map normal to coordinate space
-        R = R.T
-        n_r = R @ n
+        n_r = iR[:3, :3] @ n
         n_r = n_r / vecnorm(n_r)
 
         # Push sample out by set distance
         sample = v + (n_r * self.distance)
 
-        return sample, R, C, n
+        return sample, iR, C, n
 
     def _transform_input(self, x, y, theta):
         '''
@@ -190,8 +206,8 @@ class FieldFunc():
 
         sample, R, C, _ = self._construct_sample(x, y)
         preaff_rot, preaff_norm = geolib.map_rot_2_surf(0, 0, theta, C)
-        rot = R @ preaff_rot
-        n = R @ preaff_norm
+        rot = R[:3, :3] @ preaff_rot
+        n = R[:3, :3] @ preaff_norm
 
         o_matrix = geolib.define_coil_orientation(sample, rot, n)
         return o_matrix
@@ -267,6 +283,9 @@ class FieldFunc():
         logger.info('Pulling field values from {}...'.format(sim_file))
         normE = geolib.get_field_subset(sim_file, elem_ids)
         logger.info('Successfully pulled field values!')
+
+        neg_ind = np.where(normE < 0)
+        normE[neg_ind] = 0
 
         return np.dot(self.tw, normE)
 
