@@ -44,7 +44,8 @@ class FieldFunc():
                  local_span=8,
                  distance=1,
                  didt=1e6,
-                 cpus=1):
+                 cpus=1,
+                 solver_options=None):
         '''
         Standard constructor
         Arguments:
@@ -74,6 +75,7 @@ class FieldFunc():
         self.cpus = cpus
         self.geo_radius = local_span
         self.distance = distance
+        self.solver_opt = solver_options
 
         logger.info('Loading in coordinate data from mesh file...')
         self.nodes, self.coords, _ = geolib.load_gmsh_nodes(self.mesh, (2, 5))
@@ -241,7 +243,8 @@ class FieldFunc():
                  didt_list,
                  output_names,
                  geo_names,
-                 n_workers=self.cpus)
+                 n_workers=self.cpus,
+                 solver_options=self.solver_opt)
         logger.info('Successfully completed simulations!')
 
         return sorted(output_names)
