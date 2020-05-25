@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 class FieldFunc():
 
     FIELD_ENTITY = (3, 2)
+    PIAL_ENTITY = (2, 1002)
     FIELDS = ['E', 'e', 'J', 'j']
     '''
     This class provides an interface in which the details related
@@ -134,7 +135,6 @@ class FieldFunc():
 
         bounds = np.c_[minarr.T, maxarr.T]
 
-
         return C, iR, bounds
 
     def _construct_local_quadric(self, p, tol=1e-3):
@@ -144,8 +144,7 @@ class FieldFunc():
         '''
 
         # Get local neighbourhood
-        neighbours_ind = np.where(
-            vecnorm(self.coords - p, axis=1) < tol)
+        neighbours_ind = np.where(vecnorm(self.coords - p, axis=1) < tol)
 
         neighbours = self.coords[neighbours_ind]
 
@@ -265,7 +264,7 @@ class FieldFunc():
         '''
 
         logger.info('Transforming inputs...')
-        matsimnibs = self._transform_input(coord[0], coord[1], coord[2])
+        matsimnibs = self._transform_input(*coord)
 
         logger.info('Running simulation')
         sim_file = self._run_simulation(matsimnibs, out_dir)[0]
@@ -326,3 +325,38 @@ class FieldFunc():
                 logger.info(f'Successfully stored outputs in {out_dir}')
 
         return scores
+
+    def get_coil2cortex_distance(self, input_coord):
+        '''
+        Given an input sampling coordinate on the parameteric
+        mesh calculate the distance from the coil to target triangle
+        on the cortical surface mesh.
+
+        This function wraps:
+        `simnibs.Msh.intercept_ray`
+
+        The proposed ray is drawn from the coil centre and is drawn
+        with large magnitude in the direction of the coil normal
+
+        Arguments:
+            input_coord : a 1 dimensional 3-iterable containing
+                x, y, and rotation
+
+        Returns:
+            d : The distance between the proposed coil location
+                and the target ROI on the cortex
+        '''
+
+        # Compute the coil affine matrix
+        coil_affine = self._transform_input(*input_coord)
+        n = coil_affine[:3, 2]
+        p0 = coil_affine[:3, 3]
+        p1 = p0 + (n * 200)
+
+        # Calculate interception with pial surface
+        pial_mesh = self.cached_mesh.crop_msh(self.PIAL_ENTITY[1],
+                                              self.PIAL_ENTITY[0])
+        _, pos = pial_mesh.intercept_ray(p0, p1)
+
+        # Compute distance
+        return np.linalg.norm(p0 - pos)
