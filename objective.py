@@ -10,7 +10,7 @@ from simnibs.msh import mesh_io
 from simnibs.simulation.fem import tms_coil
 from fieldopt import geolib
 import logging
-from shutil import copytree
+from shutil import copytree, move
 
 logging.basicConfig(
     format='[%(levelname)s - %(name)s.%(funcName)5s() ] %(message)s',
@@ -214,6 +214,20 @@ class FieldFunc():
         o_matrix = geolib.define_coil_orientation(sample, rot, n)
         return o_matrix
 
+    def _get_simulation_outnames(self, num_sims, sim_dir):
+
+        simu_name = os.path.join(sim_dir, 'TMS_{}'.format(1))
+        coil_name = os.path.splitext(os.path.basename(self.coil))[0]
+
+        fn_simu = [
+            "{0}-{1:0=4d}_{2}_".format(simu_name, i + 1, coil_name)
+            for i in range(num_sims)
+        ]
+        output_names = [f + 'scalar.msh' for f in fn_simu]
+        geo_names = [f + 'coil_pos.geo' for f in fn_simu]
+
+        return output_names, geo_names
+
     def _run_simulation(self, matsimnibs, sim_dir):
 
         if not isinstance(matsimnibs, list):
@@ -223,15 +237,9 @@ class FieldFunc():
         logger.info('Constructing inputs for simulation...')
         logger.info(f'Using didt={self.didt}')
         didt_list = [self.didt] * len(matsimnibs)
-        simu_name = os.path.join(sim_dir, 'TMS_{}'.format(1))
-        coil_name = os.path.splitext(os.path.basename(self.coil))[0]
 
-        fn_simu = [
-            "{0}-{1:0=4d}_{2}_".format(simu_name, i + 1, coil_name)
-            for i in range(len(matsimnibs))
-        ]
-        output_names = [f + 'scalar.msh' for f in fn_simu]
-        geo_names = [f + 'coil_pos.geo' for f in fn_simu]
+        output_names, geo_names = self._get_simulation_outnames(
+                len(matsimnibs), sim_dir)
 
         logger.info('Starting SimNIBS simulations...')
         tms_coil(self.cached_mesh,
@@ -248,7 +256,7 @@ class FieldFunc():
 
         return sorted(output_names)
 
-    def run_simulation(self, coord, out_dir):
+    def run_simulation(self, coord, out_sim, out_geo):
         '''
         Given a quadratic surface input (x,y) and a rotational
         interpolation angle (theta) run a simulation and
@@ -266,14 +274,25 @@ class FieldFunc():
         logger.info('Transforming inputs...')
         matsimnibs = self._transform_input(*coord)
 
-        logger.info('Running simulation')
-        sim_file = self._run_simulation(matsimnibs, out_dir)[0]
+        # Run simulation in a temporary directory
+        with tempfile.TemporaryDirectory(dir=self.field_dir) as sim_dir:
+            logger.info('Running simulation')
+            sim_file = self._run_simulation(matsimnibs, sim_dir)[0]
 
-        logger.info('Calculating Score...')
-        scores = self._calculate_score(sim_file)
-        logger.info('Successfully pulled scores!')
+            logger.info('Calculating Score...')
+            scores = self._calculate_score(sim_file)
+            logger.info('Successfully pulled scores!')
 
-        return sim_file, scores
+            geo_names, sim_names = self._get_simulation_outnames(
+                    1, sim_dir)
+
+            # Transfer files to destination
+            logger.info('Transferring files to destination')
+            move(geo_names[0], out_geo)
+            move(sim_names[0], out_sim)
+            logger.info('Succesfully transferred files')
+
+        return scores, matsimnibs
 
     def _calculate_score(self, sim_file):
         '''
