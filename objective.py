@@ -20,9 +20,6 @@ logger = logging.getLogger(__name__)
 
 class FieldFunc():
 
-    FIELD_ENTITY = (3, 2)
-    PIAL_ENTITY = (2, 1002)
-    FIELDS = ['E', 'e', 'J', 'j']
     '''
     This class provides an interface in which the details related
     to simulation and score extraction is abstracted away for
@@ -35,6 +32,11 @@ class FieldFunc():
             surface transformations (use file paths?)
 
     '''
+
+    FIELD_ENTITY = (3, 2)
+    PIAL_ENTITY = (2, 1002)
+    FIELDS = ['E', 'e', 'J', 'j']
+
     def __init__(self,
                  mesh_file,
                  initial_centroid,
@@ -73,6 +75,8 @@ class FieldFunc():
         self.field_dir = field_dir
         self.coil = coil
         self.didt = didt
+
+        logger.info(f"Configured to use {cpus} cpus...")
         self.cpus = cpus
         self.geo_radius = local_span
         self.distance = distance
@@ -93,7 +97,6 @@ class FieldFunc():
         logger.info('Successfully constructed initial sampling surface')
 
         # Store single read in memory, this will prevent GC issues
-        # and will force only a single slow read of the file
         logger.info('Caching mesh file on instance construction...')
         self.cached_mesh = mesh_io.read_msh(mesh_file)
         self.cached_mesh.fix_surface_labels()
@@ -103,6 +106,12 @@ class FieldFunc():
         condlist = [c.value for c in cond.standard_cond()]
         self.cond = cond.cond2elmdata(self.cached_mesh, condlist)
         logger.info('Successfully stored conductivity values...')
+
+        # Control for coil file-type and SimNIBS changing convention
+        if self.coil.endswith('.ccd'):
+            self.normflip = -1
+        else:
+            self.normflip = 1
 
     def __repr__(self):
         '''
@@ -211,7 +220,7 @@ class FieldFunc():
         rot = R[:3, :3] @ preaff_rot
         n = R[:3, :3] @ preaff_norm
 
-        o_matrix = geolib.define_coil_orientation(sample, rot, n)
+        o_matrix = geolib.define_coil_orientation(sample, rot, self.normflip*n)
         return o_matrix
 
     def _get_simulation_outnames(self, num_sims, sim_dir):

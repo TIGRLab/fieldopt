@@ -250,7 +250,7 @@ def define_coil_orientation(loc, rot, n):
     '''
 
     y = rot / vecnorm(rot)
-    z = -n / vecnorm(n)
+    z = n / vecnorm(n)
     x = np.cross(y, z)
     c = loc
 
