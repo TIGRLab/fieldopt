@@ -109,9 +109,9 @@ class FieldFunc():
 
         # Control for coil file-type and SimNIBS changing convention
         if self.coil.endswith('.ccd'):
-            self.normflip = -1
-        else:
             self.normflip = 1
+        else:
+            self.normflip = -1
 
     def __repr__(self):
         '''
