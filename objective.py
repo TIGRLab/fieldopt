@@ -292,7 +292,7 @@ class FieldFunc():
             scores = self._calculate_score(sim_file)
             logger.info('Successfully pulled scores!')
 
-            geo_names, sim_names = self._get_simulation_outnames(
+            sim_names, geo_names = self._get_simulation_outnames(
                     1, sim_dir)
 
             # Transfer files to destination
