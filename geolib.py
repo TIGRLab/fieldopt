@@ -4,7 +4,6 @@
 # Library of useful geometry functions
 
 import numpy as np
-import gc
 from scipy.linalg import lstsq
 from numpy.linalg import norm as vecnorm
 import gmsh
