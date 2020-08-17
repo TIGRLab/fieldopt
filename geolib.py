@@ -427,7 +427,7 @@ def ray_interception(pn, pf, coords, trigs, epsilon=1e-6):
 
     # Check whether the point of intersection lies within the triangle
     w = i_p - V0[valid_verts][ray_valid]
-    s, t = generalized_perp_operator(u,v,w)
+    s, t = compute_parameteric_coordinates(u,v,w)
     s_conditional = ((s > 0) & (s < 1))
     t_conditional = ((t > 0) & (t < 1))
     within_trig = np.where(s_conditional & t_conditional & ((s+t) < 1))
@@ -447,9 +447,11 @@ def ray_interception(pn, pf, coords, trigs, epsilon=1e-6):
     else:
         return (None, None, None)
 
-def generalized_perp_operator(u, v, w):
+def compute_parameteric_coordinates(u, v, w):
     '''
-    Calculates the generalized perp operator
+    Given two coordinate axes (u,v) find (s,t), given that:
+
+                        w = su + tv
 
     Arguments:
         (u,v)       Parameteric edges
