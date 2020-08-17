@@ -382,6 +382,9 @@ def ray_interception(pn, pf, coords, trigs, epsilon=1e-6):
     by a set of vertex coordinates and triangles. Yields minimum coordinate
     of ray.
 
+    Algorithm vectorized and
+    adapted from http://geomalgorithms.com/a06-_intersect-2.html
+
     Arguments:
         pn, pf              Points to define ray (near, far)
         coords              Array of vertex coordinates defining mesh
