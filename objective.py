@@ -3,14 +3,18 @@
 
 import os
 import tempfile
+import gc
+import logging
+from shutil import copytree, move
+
 import numpy as np
 from numpy.linalg import norm as vecnorm
+
 from simnibs import cond
 from simnibs.msh import mesh_io
 from simnibs.simulation.fem import tms_coil
+
 from fieldopt import geolib
-import logging
-from shutil import copytree, move
 
 logging.basicConfig(
     format='[%(levelname)s - %(name)s.%(funcName)5s() ] %(message)s',
@@ -303,6 +307,7 @@ class FieldFunc():
 
         return scores, matsimnibs
 
+
     def _calculate_score(self, sim_file):
         '''
         Given a simulation output file, compute the score
@@ -312,7 +317,7 @@ class FieldFunc():
         _, elem_ids, _ = geolib.load_gmsh_elems(sim_file, self.FIELD_ENTITY)
 
         logger.info('Pulling field values from {}...'.format(sim_file))
-        normE = geolib.get_field_subset(sim_file, elem_ids)
+        normE = get_field_subset(sim_file, elem_ids)
         logger.info('Successfully pulled field values!')
 
         neg_ind = np.where(normE < 0)
@@ -388,3 +393,23 @@ class FieldFunc():
 
         # Compute distance
         return np.linalg.norm(p0 - pos)
+
+def get_field_subset(field_msh, tag_list):
+    '''
+    From a .msh file outputted from running a TMS field simulation
+    extract the field magnitude values of elements provided for in tag_list
+
+    field_msh  --  Path to .msh file result from TMS simulation
+    tag_list   --  List of element tags to use as subset
+
+    Output:
+    normE      --  List of electric field norms (magnitudes)
+                   subsetted according to tag_list
+    '''
+
+    msh = mesh_io.read_msh(field_msh)
+    norm_E = msh.elmdata[1].value
+
+    del msh
+    gc.collect()
+    return norm_E[tag_list]

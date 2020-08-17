@@ -8,7 +8,6 @@ import gc
 from scipy.linalg import lstsq
 from numpy.linalg import norm as vecnorm
 import gmsh
-from simnibs.msh import mesh_io as simgmsh
 import numba
 
 
@@ -262,28 +261,6 @@ def define_coil_orientation(loc, rot, n):
     matsimnibs[3, 3] = 1
 
     return matsimnibs
-
-
-def get_field_subset(field_msh, tag_list):
-    '''
-    From a .msh file outputted from running a TMS field simulation
-    extract the field magnitude values of elements provided for in tag_list
-
-    field_msh  --  Path to .msh file result from TMS simulation
-    tag_list   --  List of element tags to use as subset
-
-    Output:
-    normE      --  List of electric field norms (magnitudes)
-                   subsetted according to tag_list
-    '''
-
-    msh = simgmsh.read_msh(field_msh)
-    norm_E = msh.elmdata[1].value
-
-    del msh
-    gc.collect()
-    return norm_E[tag_list]
-
 
 def compute_field_score(normE, proj_map, parcel):
     '''
