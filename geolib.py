@@ -376,15 +376,22 @@ def get_normals(point_tags, all_tags, coords, trigs):
     return norm_array
 
 
-def ray_interception(p0, p1, coords, trigs, epsilon=1e6):
+def ray_interception(pn, pf, coords, trigs, epsilon=1e-6):
     '''
     Compute interception point and distance of ray to mesh defined
-    by a set of vertex coordinates and triangles.
+    by a set of vertex coordinates and triangles. Yields minimum coordinate
+    of ray.
 
     Arguments:
-        p0, p1              Points to define ray
+        pn, pf              Points to define ray (near, far)
         coords              Array of vertex coordinates defining mesh
         trigs               Array of vertex IDs defining mesh triangles
+
+    Returns:
+        p_I                 Minimum Point of intersection
+        ray_len             Length of line from pn to p_I
+        min_trig            Triangle ID that contains the shortest
+                            length intersection
     '''
 
     # Get coordinates for triangles
@@ -399,48 +406,68 @@ def ray_interception(p0, p1, coords, trigs, epsilon=1e6):
 
     # Remove all degenerate triangles
     valid_verts = np.where(vecnorm(n, axis=1) > epsilon)
-    u = u[valid_verts, :]
-    v = v[valid_verts, :]
-    n = n[valid_verts, :]
+    u = u[valid_verts]
+    v = v[valid_verts]
+    n = n[valid_verts]
 
     # Check if ray is in plane w/triangle and if ray is moving toward triangle
-    r_denom = np.dot(n, p1 - p0)
-    r_numer = np.dot(n, V0[valid_verts, :] - p0)
+    r_denom = (n * (pf - pn)).sum(axis=1)
+    r_numer = (n * (V0[valid_verts] - pn)).sum(axis=1)
     r = r_numer / r_denom
-
-    ray_valid = np.where(r_denom > epsilon & r > 0)
-    u = u[ray_valid, :]
-    v = v[ray_valid, :]
-    n = n[ray_valid, :]
+    ray_valid = np.where((np.abs(r_denom) > epsilon) & (r > 0))
+    u = u[ray_valid]
+    v = v[ray_valid]
+    n = n[ray_valid]
 
     # Solve for intersection point of ray to plane
-    i_p = p0 - (r * p1-p0)
+    i_p = pn - (r[:, np.newaxis][ray_valid] * (pn - pf))
 
     # Check whether the point of intersection lies within the triangle
-    uu = u.dot(u)
-    uv = u.dot(v)
-    vv = v.dot(v)
-    w = i_p - V0
-    wu = w.dot(u)
-    wv = w.dot(v)
+    w = i_p - V0[valid_verts][ray_valid]
+    s, t = generalized_perp_operator(u,v,w)
+    s_conditional = ((s > 0) & (s < 1))
+    t_conditional = ((t > 0) & (t < 1))
+    within_trig = np.where(s_conditional & t_conditional & ((s+t) < 1))
+
+    # Get minimizing triangle identity if a triangle is identified
+    if within_trig[0]:
+        argmin_r = np.argmin(r[ray_valid][within_trig])
+        trig_ids = np.arange(0, trigs.shape[0])[valid_verts][ray_valid][within_trig]
+        min_trig = trig_ids[argmin_r]
+
+        # Compute distance from ray origin to triangle
+        p_I = i_p[within_trig][argmin_r]
+        ray_len = vecnorm(p_I - pn)
+
+        # Return point of intersection point, ray length, and triangle with minimum
+        return (p_I, ray_len, min_trig)
+    else:
+        return (None, None, None)
+
+def generalized_perp_operator(u, v, w):
+    '''
+    Calculates the generalized perp operator
+
+    Arguments:
+        (u,v)       Parameteric edges
+        w           Vector from ray to a point on the plane
+
+    Outputs:
+        s           Parameteric coordinate for edge u
+        t           Parameteric coordinate for edge v
+    '''
+
+    uu = (u*u).sum(axis=1)
+    uv = (u*v).sum(axis=1)
+    vv = (v*v).sum(axis=1)
+    wu = (w*u).sum(axis=1)
+    wv = (w*v).sum(axis=1)
+
     D = (uv * uv) - (uu * vv)
+    s = ((uv * wv) - (vv * wu))/D
+    t = ((uv * wu) - (uu * wv))/D
 
-    s = (uv * wv - vv * wu)/D
-    s_conditional = (s > 0 & s < 1)
-
-    t = (uv * wu - uu * wv)/D
-    t_conditional = (t > 0 & t < 1)
-
-    within_trig = np.where(s_conditional & t_conditional & (s+t) < 1)
-
-    # Must return:
-    # Distances for each valid intersection
-    # List of triangles and coordinates with valid intersections
-    # Point of valid intersection
-
-
-
-
+    return (s,t)
 
 @numba.njit
 def get_vert_norms(trigs, coords):
