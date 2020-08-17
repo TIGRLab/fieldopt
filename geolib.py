@@ -400,6 +400,72 @@ def get_normals(point_tags, all_tags, coords, trigs):
     return norm_array
 
 
+def ray_interception(p0, p1, coords, trigs, epsilon=1e6):
+    '''
+    Compute interception point and distance of ray to mesh defined
+    by a set of vertex coordinates and triangles.
+
+    Arguments:
+        p0, p1              Points to define ray
+        coords              Array of vertex coordinates defining mesh
+        trigs               Array of vertex IDs defining mesh triangles
+    '''
+
+    # Get coordinates for triangles
+    V0 = coords[trigs[:, 0], :]
+    V1 = coords[trigs[:, 1], :]
+    V2 = coords[trigs[:, 2], :]
+
+    # Calculate triangle plane
+    u = V1 - V0
+    v = V2 - V0
+    n = np.cross(u, v)
+
+    # Remove all degenerate triangles
+    valid_verts = np.where(vecnorm(n, axis=1) > epsilon)
+    u = u[valid_verts, :]
+    v = v[valid_verts, :]
+    n = n[valid_verts, :]
+
+    # Check if ray is in plane w/triangle and if ray is moving toward triangle
+    r_denom = np.dot(n, p1 - p0)
+    r_numer = np.dot(n, V0[valid_verts, :] - p0)
+    r = r_numer / r_denom
+
+    ray_valid = np.where(r_denom > epsilon & r > 0)
+    u = u[ray_valid, :]
+    v = v[ray_valid, :]
+    n = n[ray_valid, :]
+
+    # Solve for intersection point of ray to plane
+    i_p = p0 - (r * p1-p0)
+
+    # Check whether the point of intersection lies within the triangle
+    uu = u.dot(u)
+    uv = u.dot(v)
+    vv = v.dot(v)
+    w = i_p - V0
+    wu = w.dot(u)
+    wv = w.dot(v)
+    D = (uv * uv) - (uu * vv)
+
+    s = (uv * wv - vv * wu)/D
+    s_conditional = (s > 0 & s < 1)
+
+    t = (uv * wu - uu * wv)/D
+    t_conditional = (t > 0 & t < 1)
+
+    within_trig = np.where(s_conditional & t_conditional & (s+t) < 1)
+
+    # Must return:
+    # Distances for each valid intersection
+    # List of triangles and coordinates with valid intersections
+    # Point of valid intersection
+
+
+
+
+
 @numba.njit
 def get_vert_norms(trigs, coords):
     '''
