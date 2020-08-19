@@ -166,7 +166,6 @@ class FieldFunc():
                                      self.coords, self.trigs)
 
         # Usage average of normals for alignment
-        n = np.mean(normals, axis=0)
         n = n / vecnorm(n)
 
         # Make transformation matrix

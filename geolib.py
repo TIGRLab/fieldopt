@@ -359,6 +359,27 @@ def cross(a, b):
 
 def get_normals(point_tags, all_tags, coords, trigs):
 
+    '''
+    Given a patch defined by the node IDs given by point_tags
+    compute the surface normal of the patch. This is done by
+    completing the triangles given by the set of point_tags,
+    then computing normal of each vertex weighted by triangle
+    area. Finally the set of normals across vertices defined 
+    in the patch is averaged to yield the patch normal.
+
+    Arguments:
+        point_tags          Set of Node IDS defining the patch
+                            to compute the normal for
+        all_tags            The set of all Node IDs belonging
+                            to the mesh
+        coords              The coordinates of all the vertices
+                            belonging to the mesh
+        trigs               Array describing triangle faces
+
+    Output:
+        A 1x3 vector of the patch normal
+    '''
+
     t_arr = get_relevant_triangles(point_tags, trigs)
     rel_ind = np.where(t_arr > 0)
     rel_trig = trigs[rel_ind[0], :]
@@ -373,7 +394,7 @@ def get_normals(point_tags, all_tags, coords, trigs):
     rel_verts_coords = coords[rel_verts, :][0]
 
     norm_array = get_vert_norms(mapped_trigs, rel_verts_coords)
-    return norm_array
+    return norm_array.mean(axis=0)
 
 
 def ray_interception(pn, pf, coords, trigs, epsilon=1e-6):
