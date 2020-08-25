@@ -454,7 +454,7 @@ def ray_interception(pn, pf, coords, trigs, epsilon=1e-6):
     within_trig = np.where(s_conditional & t_conditional & ((s+t) < 1))
 
     # Get minimizing triangle identity if a triangle is identified
-    if within_trig[0]:
+    if len(within_trig[0]) > 0:
         argmin_r = np.argmin(r[ray_valid][within_trig])
         trig_ids = np.arange(0, trigs.shape[0])[valid_verts][ray_valid][within_trig]
         min_trig = trig_ids[argmin_r]
