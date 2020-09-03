@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 
 class FieldFunc():
-
     '''
     This class provides an interface in which the details related
     to simulation and score extraction is abstracted away for
@@ -223,7 +222,8 @@ class FieldFunc():
         rot = R[:3, :3] @ preaff_rot
         n = R[:3, :3] @ preaff_norm
 
-        o_matrix = geolib.define_coil_orientation(sample, rot, self.normflip*n)
+        o_matrix = geolib.define_coil_orientation(sample, rot,
+                                                  self.normflip * n)
         return o_matrix
 
     def _get_simulation_outnames(self, num_sims, sim_dir):
@@ -251,7 +251,7 @@ class FieldFunc():
         didt_list = [self.didt] * len(matsimnibs)
 
         output_names, geo_names = self._get_simulation_outnames(
-                len(matsimnibs), sim_dir)
+            len(matsimnibs), sim_dir)
 
         logger.info('Starting SimNIBS simulations...')
         tms_coil(self.cached_mesh,
@@ -295,8 +295,7 @@ class FieldFunc():
             scores = self._calculate_score(sim_file)
             logger.info('Successfully pulled scores!')
 
-            sim_names, geo_names = self._get_simulation_outnames(
-                    1, sim_dir)
+            sim_names, geo_names = self._get_simulation_outnames(1, sim_dir)
 
             # Transfer files to destination
             logger.info('Transferring files to destination')
@@ -306,10 +305,13 @@ class FieldFunc():
 
         return scores, matsimnibs
 
-
     def _calculate_score(self, sim_file):
         '''
         Given a simulation output file, compute the score
+
+        Volumes are integrated into the score function to deal with
+        score inflation due to a larger number of elements near
+        more complex geometry.
         '''
 
         logger.info('Loading gmsh elements from {}...'.format(sim_file))
@@ -322,7 +324,8 @@ class FieldFunc():
         neg_ind = np.where(normE < 0)
         normE[neg_ind] = 0
 
-        return np.dot(self.tw, normE)
+        scores = self.tw * normE * self._get_tet_volumes()
+        return scores.sum()
 
     def evaluate(self, input_list, out_dir=None):
         '''
@@ -392,6 +395,15 @@ class FieldFunc():
 
         # Compute distance
         return np.linalg.norm(p0 - pos)
+
+    def _get_tet_volumes(self):
+        '''
+        Get tetrahedral volumes for grey matter mesh
+        '''
+
+        gm_ids = np.where(self.mesh.elm.tag1 == self.FIELD_ENTITY[1])
+        return self.mesh.elements_volumes_and_areas()[gm_ids]
+
 
 def get_field_subset(field_msh, tag_list):
     '''
