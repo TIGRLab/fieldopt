@@ -401,8 +401,8 @@ class FieldFunc():
         Get tetrahedral volumes for grey matter mesh
         '''
 
-        gm_ids = np.where(self.mesh.elm.tag1 == self.FIELD_ENTITY[1])
-        return self.mesh.elements_volumes_and_areas()[gm_ids]
+        gm_ids = np.where(self.cached_mesh.elm.tag1 == self.FIELD_ENTITY[1])
+        return self.cached_mesh.elements_volumes_and_areas()[gm_ids]
 
 
 def get_field_subset(field_msh, tag_list):
