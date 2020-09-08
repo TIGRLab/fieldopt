@@ -222,7 +222,7 @@ def load_gmsh_nodes(gmshpath, entity):
     coords = np.array(coords).reshape((len(coords) // 3, 3))
     gmsh.clear()
 
-    return nodes, coords, params
+    return nodes - 1, coords, params
 
 
 def load_gmsh_elems(gmshpath, entity):
@@ -236,7 +236,7 @@ def load_gmsh_elems(gmshpath, entity):
         entity[0], entity[1])
     gmsh.clear()
 
-    return nodes, elem_ids[0], node_maps
+    return nodes, elem_ids[0] - 1, node_maps[0] - 1
 
 
 def define_coil_orientation(loc, rot, n):
@@ -364,7 +364,7 @@ def get_normals(point_tags, all_tags, coords, trigs):
     compute the surface normal of the patch. This is done by
     completing the triangles given by the set of point_tags,
     then computing normal of each vertex weighted by triangle
-    area. Finally the set of normals across vertices defined 
+    area. Finally the set of normals across vertices defined
     in the patch is averaged to yield the patch normal.
 
     Arguments:

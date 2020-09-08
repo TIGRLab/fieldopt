@@ -26,7 +26,7 @@ class FieldFunc():
     '''
     This class provides an interface in which the details related
     to simulation and score extraction is abstracted away for
-    any general Bayesian Optimization package
+    any general Optimization package
 
     Layout
     Properties:
@@ -305,6 +305,14 @@ class FieldFunc():
 
         return scores, matsimnibs
 
+    def _get_tet_ids(self, entity):
+        '''
+        Pull list of element IDs for a given gmsh entity
+        '''
+
+        tet_ids = np.where(self.cached_mesh.elm.tag1 == entity[1])
+        return tet_ids
+
     def _calculate_score(self, sim_file):
         '''
         Given a simulation output file, compute the score
@@ -315,16 +323,18 @@ class FieldFunc():
         '''
 
         logger.info('Loading gmsh elements from {}...'.format(sim_file))
-        _, elem_ids, _ = geolib.load_gmsh_elems(sim_file, self.FIELD_ENTITY)
+        tet_ids = self._get_tet_ids(self.FIELD_ENTITY)
 
         logger.info('Pulling field values from {}...'.format(sim_file))
-        normE = get_field_subset(sim_file, elem_ids)
+        normE = get_field_subset(sim_file, tet_ids)
         logger.info('Successfully pulled field values!')
 
         neg_ind = np.where(normE < 0)
         normE[neg_ind] = 0
 
-        scores = self.tw * normE * self._get_tet_volumes()
+        vols = self.cached_mesh.elements_volumes_and_areas()[tet_ids]
+
+        scores = self.tw * normE * vols
         return scores.sum()
 
     def evaluate(self, input_list, out_dir=None):
@@ -395,14 +405,6 @@ class FieldFunc():
 
         # Compute distance
         return np.linalg.norm(p0 - pos)
-
-    def _get_tet_volumes(self):
-        '''
-        Get tetrahedral volumes for grey matter mesh
-        '''
-
-        gm_ids = np.where(self.cached_mesh.elm.tag1 == self.FIELD_ENTITY[1])
-        return self.cached_mesh.elements_volumes_and_areas()[gm_ids]
 
 
 def get_field_subset(field_msh, tag_list):
