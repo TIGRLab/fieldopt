@@ -88,7 +88,7 @@ class FieldFunc():
         logger.info('Loading in coordinate data from mesh file...')
         self.nodes, self.coords, _ = geolib.load_gmsh_nodes(self.mesh, (2, 5))
         _, _, trigs = geolib.load_gmsh_elems(self.mesh, (2, 5))
-        self.trigs = np.array(trigs[0]).reshape(-1, 3)
+        self.trigs = np.array(trigs).reshape(-1, 3)
         logger.info('Successfully pulled in node and element data!')
 
         # Construct basis of sampling space using centroid
