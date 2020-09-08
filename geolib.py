@@ -53,7 +53,7 @@ def rotate_vec2vec(v1, v2):
     sinv = vecnorm(n)
     cosv = np.dot(v1, v2)
     R = np.eye(3) + skew(n) + np.matmul(skew(n), skew(n)) * (1 - cosv) / (sinv
-                                                                          ** 2)
+                                                                          **2)
     return R
 
 
@@ -261,6 +261,7 @@ def define_coil_orientation(loc, rot, n):
 
     return matsimnibs
 
+
 def compute_field_score(normE, proj_map, parcel):
     '''
     From a list of field magnitudes in <normE> compute the
@@ -358,7 +359,6 @@ def cross(a, b):
 
 
 def get_normals(point_tags, all_tags, coords, trigs):
-
     '''
     Given a patch defined by the node IDs given by point_tags
     compute the surface normal of the patch. This is done by
@@ -448,15 +448,16 @@ def ray_interception(pn, pf, coords, trigs, epsilon=1e-6):
 
     # Check whether the point of intersection lies within the triangle
     w = i_p - V0[valid_verts][ray_valid]
-    s, t = compute_parameteric_coordinates(u,v,w)
+    s, t = compute_parameteric_coordinates(u, v, w)
     s_conditional = ((s > 0) & (s < 1))
     t_conditional = ((t > 0) & (t < 1))
-    within_trig = np.where(s_conditional & t_conditional & ((s+t) < 1))
+    within_trig = np.where(s_conditional & t_conditional & ((s + t) < 1))
 
     # Get minimizing triangle identity if a triangle is identified
     if len(within_trig[0]) > 0:
         argmin_r = np.argmin(r[ray_valid][within_trig])
-        trig_ids = np.arange(0, trigs.shape[0])[valid_verts][ray_valid][within_trig]
+        trig_ids = np.arange(
+            0, trigs.shape[0])[valid_verts][ray_valid][within_trig]
         min_trig = trig_ids[argmin_r]
 
         # Compute distance from ray origin to triangle
@@ -467,6 +468,7 @@ def ray_interception(pn, pf, coords, trigs, epsilon=1e-6):
         return (p_I, ray_len, min_trig)
     else:
         return (None, None, None)
+
 
 def compute_parameteric_coordinates(u, v, w):
     '''
@@ -483,17 +485,18 @@ def compute_parameteric_coordinates(u, v, w):
         t           Parameteric coordinate for edge v
     '''
 
-    uu = (u*u).sum(axis=1)
-    uv = (u*v).sum(axis=1)
-    vv = (v*v).sum(axis=1)
-    wu = (w*u).sum(axis=1)
-    wv = (w*v).sum(axis=1)
+    uu = (u * u).sum(axis=1)
+    uv = (u * v).sum(axis=1)
+    vv = (v * v).sum(axis=1)
+    wu = (w * u).sum(axis=1)
+    wv = (w * v).sum(axis=1)
 
     D = (uv * uv) - (uu * vv)
-    s = ((uv * wv) - (vv * wu))/D
-    t = ((uv * wu) - (uu * wv))/D
+    s = ((uv * wv) - (vv * wu)) / D
+    t = ((uv * wu) - (uu * wv)) / D
 
-    return (s,t)
+    return (s, t)
+
 
 @numba.njit
 def get_vert_norms(trigs, coords):
