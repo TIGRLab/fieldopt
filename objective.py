@@ -3,7 +3,6 @@
 
 import os
 import tempfile
-import gc
 import logging
 from shutil import copytree, move
 
@@ -127,7 +126,6 @@ class FieldFunc():
         self.bounds = bounds
         logger.info('Successfully constructed initial sampling surface')
 
-        # TODO: Remove self.cond
         logger.info('Caching mesh file...')
         self.cached_mesh = mesh_io.read_msh(self.mesh)
         self.cached_mesh.fix_surface_labels()
@@ -286,13 +284,13 @@ class FieldFunc():
         output_names, geo_names = self._get_simulation_outnames(
             len(matsimnibs), sim_dir)
 
-        if len(matsimnibs) == 1:
+        if self.cpus == 1:
             _set_up_global_solver(self.FEMSystem)
             for args in zip(matsimnibs, didt_list, output_names, geo_names):
                 self._simulate(*args)
         else:
             logging.info(f"Running {len(matsimnibs)} simulations using "
-                    f"{self.cpus} processes")
+                         f"{self.cpus} processes")
             with Pool(processes=self.cpus,
                       initializer=_set_up_global_solver,
                       initargs=(self.FEMSystem, )) as pool:
@@ -395,10 +393,10 @@ class FieldFunc():
 
             logger.info('Running simulations...')
             sim_files = self._run_simulation(matsimnibs, sim_dir)
+            logger.info('Successfully completed simulations!')
 
             logger.info('Calculating Scores...')
             scores = np.array([self._calculate_score(s) for s in sim_files])
-
             logger.info('Successfully pulled scores!')
 
             if out_dir is not None:
@@ -460,6 +458,4 @@ def get_field_subset(field_msh, tag_list):
     msh = mesh_io.read_msh(field_msh)
     norm_E = msh.elmdata[1].value
 
-    del msh
-    gc.collect()
     return norm_E[tag_list]
