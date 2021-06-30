@@ -12,9 +12,11 @@ from numpy.linalg import norm as vecnorm
 
 from simnibs import cond
 from simnibs.msh import mesh_io
-from simnibs.simulation.fem import tms_coil
+from simnibs.simulation.fem import (FEMSystem, _set_up_global_solver, _run_tms)
 
 from fieldopt import geolib
+
+from multiprocessing import Pool
 
 logging.basicConfig(
     format='[%(levelname)s - %(name)s.%(funcName)5s() ] %(message)s',
@@ -78,12 +80,37 @@ class FieldFunc():
         self.field_dir = field_dir
         self.coil = coil
         self.didt = didt
-
         logger.info(f"Configured to use {cpus} cpus...")
         self.cpus = cpus
         self.geo_radius = local_span
         self.distance = distance
         self.solver_opt = solver_options
+        self.centroid = initial_centroid
+        self.span = span
+
+        # Control for coil file-type and SimNIBS changing convention
+        if self.coil.endswith('.ccd'):
+            self.normflip = 1
+        else:
+            self.normflip = -1
+
+        self.FEMSystem = None
+        self.initialize()
+
+    def initialize(self):
+        '''
+        Initialize objective function to allow for objective
+        function evaluations.
+
+        Caches:
+            - Mesh
+            - Nodes, Coordinates
+            - Sampling surface at given centroid
+            - Conductivity list
+            - FEMSystem
+
+        Opens multiprocessing pool to have jobs submitted
+        '''
 
         logger.info('Loading in coordinate data from mesh file...')
         self.nodes, self.coords, _ = geolib.load_gmsh_nodes(self.mesh, (2, 5))
@@ -93,15 +120,16 @@ class FieldFunc():
 
         # Construct basis of sampling space using centroid
         logger.info('Constructing initial sampling surface...')
-        C, iR, bounds = self._initialize(initial_centroid, span)
+        C, iR, bounds = self._initialize_quadratic_surface(
+            self.centroid, self.span)
         self.C = C
         self.iR = iR
         self.bounds = bounds
         logger.info('Successfully constructed initial sampling surface')
 
-        # Store single read in memory, this will prevent GC issues
-        logger.info('Caching mesh file on instance construction...')
-        self.cached_mesh = mesh_io.read_msh(mesh_file)
+        # TODO: Remove self.cond
+        logger.info('Caching mesh file...')
+        self.cached_mesh = mesh_io.read_msh(self.mesh)
         self.cached_mesh.fix_surface_labels()
         logger.info('Successfully cached mesh file')
 
@@ -110,11 +138,12 @@ class FieldFunc():
         self.cond = cond.cond2elmdata(self.cached_mesh, condlist)
         logger.info('Successfully stored conductivity values...')
 
-        # Control for coil file-type and SimNIBS changing convention
-        if self.coil.endswith('.ccd'):
-            self.normflip = 1
-        else:
-            self.normflip = -1
+        logger.info("Initializing FEM problem")
+        self.FEMSystem = FEMSystem.tms(self.cached_mesh,
+                                       self.cond,
+                                       solver_options=self.solver_opt)
+        logger.info("Completed FEM initialization")
+        return
 
     def __repr__(self):
         '''
@@ -129,7 +158,7 @@ class FieldFunc():
     def get_bounds(self):
         return self.bounds
 
-    def _initialize(self, centroid, span):
+    def _initialize_quadratic_surface(self, centroid, span):
         '''
         Construct quadratic basis and rotation at centroid point
         to use for sampling
@@ -240,6 +269,10 @@ class FieldFunc():
 
         return output_names, geo_names
 
+    def _simulate(self, matsimnib, didt, fn_out, fn_geo):
+        _run_tms(self.cached_mesh, self.cond, self.coil, self.FIELDS,
+                 matsimnib, didt, fn_out, fn_geo)
+
     def _run_simulation(self, matsimnibs, sim_dir):
 
         if not isinstance(matsimnibs, list):
@@ -253,19 +286,23 @@ class FieldFunc():
         output_names, geo_names = self._get_simulation_outnames(
             len(matsimnibs), sim_dir)
 
-        logger.info('Starting SimNIBS simulations...')
-        tms_coil(self.cached_mesh,
-                 self.cond,
-                 self.coil,
-                 self.FIELDS,
-                 matsimnibs,
-                 didt_list,
-                 output_names,
-                 geo_names,
-                 n_workers=self.cpus,
-                 solver_options=self.solver_opt)
-        logger.info('Successfully completed simulations!')
+        if len(matsimnibs) == 1:
+            _set_up_global_solver(self.FEMSystem)
+            for args in zip(matsimnibs, didt_list, output_names, geo_names):
+                self._simulate(*args)
+        else:
+            logging.info(f"Running {len(matsimnibs)} simulations using "
+                    f"{self.cpus} processes")
+            with Pool(processes=self.cpus,
+                      initializer=_set_up_global_solver,
+                      initargs=(self.FEMSystem, )) as pool:
 
+                # Blocking main process
+                pool.starmap(
+                    self._simulate,
+                    zip(matsimnibs, didt_list, output_names, geo_names))
+
+        logger.info('Successfully completed simulations!')
         return sorted(output_names)
 
     def run_simulation(self, coord, out_sim, out_geo):
