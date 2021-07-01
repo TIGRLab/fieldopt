@@ -2,17 +2,22 @@ from collections import deque
 
 import numpy as np
 
-from moe.optimal_learning.python.cpp_wrappers.domain import TensorProductDomain as cTensorProductDomain
-from moe.optimal_learning.python.python_version.domain import TensorProductDomain
+from moe.optimal_learning.python.cpp_wrappers.domain import (
+    TensorProductDomain as cTensorProductDomain)
+from moe.optimal_learning.python.python_version.domain import (
+    TensorProductDomain)
 from moe.optimal_learning.python.geometry_utils import ClosedInterval
-from moe.optimal_learning.python.cpp_wrappers.expected_improvement import ExpectedImprovement
-from moe.optimal_learning.python.cpp_wrappers.expected_improvement import multistart_expected_improvement_optimization as meio
-from moe.optimal_learning.python.data_containers import HistoricalData, SamplePoint
-from moe.optimal_learning.python.cpp_wrappers.log_likelihood_mcmc import GaussianProcessLogLikelihoodMCMC
+from moe.optimal_learning.python.cpp_wrappers.expected_improvement import (
+    ExpectedImprovement)
+from moe.optimal_learning.python.cpp_wrappers.expected_improvement import (
+    multistart_expected_improvement_optimization as meio)
+from moe.optimal_learning.python.data_containers import (HistoricalData,
+                                                         SamplePoint)
+from moe.optimal_learning.python.cpp_wrappers.log_likelihood_mcmc import (
+    GaussianProcessLogLikelihoodMCMC)
 from moe.optimal_learning.python.default_priors import DefaultPrior
-from moe.optimal_learning.python.python_version.optimization import GradientDescentOptimizer
-from moe.optimal_learning.python.cpp_wrappers.optimization import GradientDescentOptimizer as cGDOpt
-from moe.optimal_learning.python.cpp_wrappers.optimization import GradientDescentParameters as cGDParams
+from moe.optimal_learning.python.cpp_wrappers.optimization import (
+    GradientDescentOptimizer as cGDOpt, GradientDescentParameters as cGDParams)
 from moe.optimal_learning.python.base_prior import TophatPrior, NormalPrior
 
 # Estimated from initial hyper-parameter optimization
@@ -71,7 +76,7 @@ class BayesianMOEOptimizer():
 
         self.obj_func = objective_func
 
-        self.history = HistoricalData(dim=bounds.shape[0], num_derivatives=0)
+        self.dims = bounds.shape[0]
         self.best_point_history = []
         self.convergence_buffer = deque(maxlen=minimum_samples)
 
@@ -81,7 +86,8 @@ class BayesianMOEOptimizer():
         self.search_domain = TensorProductDomain(moe_bounds)
         self.c_search_domain = cTensorProductDomain(moe_bounds)
 
-        self.prior = prior(n_dms
+        # TODO: Noise modelling will be supported later
+        self.prior = prior(n_dims=self.dims + 2, num_noise=1)
         self.sgd = cGDParams(**sgd_params)
         self.gp_loglikelihood = None
 
@@ -110,6 +116,31 @@ class BayesianMOEOptimizer():
         best_coord = history.pointed_sampled[best_index]
         return best_coord, best_value
 
+    def initialize_model(self):
+        '''
+        Initialize the GaussianProcessLogLikelihood model using
+        an initial set of observations
+        '''
+
+        init_pts = self.search_domain\
+            .generate_uniform_random_points_in_domain(self.num_samples)
+        observations = self.obj_func(init_pts)
+
+        history = HistoricalData(dim=self.dims, num_derivatives=0)
+        history.append_sample_points(
+            [SamplePoint(i, o, 0.0) for i, o in zip(init_pts, observations)])
+
+        self.gp_likelihood = GaussianProcessLogLikelihoodMCMC(
+            historical_data=history,
+            derivatives=[],
+            prior=self.prior,
+            chain_length=1000,
+            burnin_steps=2000,
+            n_hypers=2**4,
+            noisy=False)
+
+        self.increment()
+
     def update_model(self, evidence):
         '''
         Updates the current ensemble of models with
@@ -121,6 +152,14 @@ class BayesianMOEOptimizer():
         self.gp_likelihood.add_sampled_points(evidence)
         self.gp_likelihood.train()
         return
+
+    def _update_history(self):
+        '''
+        Update the history of best points with the
+        current best point and value
+        '''
+        best_coord, best_value = self.best_coord
+        self.best_point_history.append((best_coord, best_value))
 
     def propose_sampling_points(self):
         '''
@@ -164,16 +203,52 @@ class BayesianMOEOptimizer():
             1. get sampling points via maximizing qEI
             2. Evaluate objective function at proposed sampling points
             3. Update ensemble of Gaussian process models
-            4. Increment iteration counter
+            4. Store current best in the history of best points
+            5. Increment iteration counter
         '''
-        sampling_points = self.propose_sampling_points()
-        res = self.evaluate_objective(sampling_points)
-        evidence = [
-            SamplePoint(c, v, 0.0) for c, v in zip(sampling_points, res)
-        ]
-        self.update_model(evidence)
+        if self.iteration == 0:
+            self.initialize_model()
+        else:
+            sampling_points = self.propose_sampling_points()
+            res = self.evaluate_objective(sampling_points)
+            evidence = [
+                SamplePoint(c, v, 0.0) for c, v in zip(sampling_points, res)
+            ]
+            self.update_model(evidence)
+        self._update_history()
         self._increment()
         return
+
+
+def get_default_tms_optimizer(f, num_samples, minimum_samples=10):
+    '''
+    Construct BayesianMOEOptimizer using pre-configured
+    prior hyperparameters
+
+    Arguments:
+        f                   FieldFunc objective function
+        num_samples         Number of samples to evaluate in parallel
+        minimum_samples     Minimum number of samples to evaluate before
+                            performing convergence checks
+    Returns:
+        Configured BayesianMOEOptimizer instance with the following priors:
+        - Squared exponential covariance function:
+            - Length scale with a TopHat(-2, 5)
+            - Log-normal covariance amplitude Ln(Normal(12.5, 1.6))
+    '''
+
+    # MOE minimizes the objective function
+    def obj(f):
+        return -f.evaluate
+
+    # Set standard TMS bounds
+    bounds = np.r_[f.bounds, np.array([0, 180])]
+
+    return BayesianMOEOptimizer(objective_func=obj,
+                                samples_per_iteration=num_samples,
+                                bounds=bounds,
+                                minimum_samples=minimum_samples,
+                                prior=DEFAULT_PRIOR)
 
 
 def _gen_sample_from_qei(gp,
