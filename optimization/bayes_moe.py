@@ -47,7 +47,8 @@ class BayesianMOEOptimizer():
                  bounds,
                  minimum_samples=10,
                  prior=DefaultPrior,
-                 sgd_params=DEFAULT_SGD_PARAMS):
+                 sgd_params=DEFAULT_SGD_PARAMS,
+                 maximize=False):
         '''
         Initialize default parameters for running a Bayesian optimization
         algorithm on an objective function with parameters.
@@ -71,10 +72,14 @@ class BayesianMOEOptimizer():
             sgd_params                  Stochastic Gradient Descent parameters
                                         (see: cornell MOE's
                                         GradientDescentParameters)
+            maximize                    Boolean indicating whether the
+                                        objective function is to be
+                                        maximized instead of being minimized
 
         '''
 
         self.obj_func = objective_func
+        self.sign = -1 if maximize else 1
 
         self.dims = bounds.shape[0]
         self.best_point_history = []
@@ -195,7 +200,10 @@ class BayesianMOEOptimizer():
         '''
 
         res = self.obj_func(sampling_points)
-        return res
+        if not isinstance(res, np.array):
+            res = np.array(res)
+
+        return self.sign * res
 
     def step(self):
         '''
@@ -236,19 +244,15 @@ def get_default_tms_optimizer(f, num_samples, minimum_samples=10):
             - Length scale with a TopHat(-2, 5)
             - Log-normal covariance amplitude Ln(Normal(12.5, 1.6))
     '''
-
-    # MOE minimizes the objective function
-    def obj(f):
-        return -f.evaluate
-
     # Set standard TMS bounds
     bounds = np.r_[f.bounds, np.array([0, 180])]
 
-    return BayesianMOEOptimizer(objective_func=obj,
+    return BayesianMOEOptimizer(objective_func=f,
                                 samples_per_iteration=num_samples,
                                 bounds=bounds,
                                 minimum_samples=minimum_samples,
-                                prior=DEFAULT_PRIOR)
+                                prior=DEFAULT_PRIOR,
+                                maximize=True)
 
 
 def _gen_sample_from_qei(gp,
