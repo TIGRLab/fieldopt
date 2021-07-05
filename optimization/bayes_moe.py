@@ -1,4 +1,5 @@
 from collections import deque
+import wrapt
 
 import numpy as np
 
@@ -16,6 +17,7 @@ from moe.optimal_learning.python.data_containers import (HistoricalData,
 from moe.optimal_learning.python.cpp_wrappers.log_likelihood_mcmc import (
     GaussianProcessLogLikelihoodMCMC)
 from moe.optimal_learning.python.default_priors import DefaultPrior
+from moe.optimal_learning.python.base_prior import BasePrior
 from moe.optimal_learning.python.cpp_wrappers.optimization import (
     GradientDescentOptimizer as cGDOpt, GradientDescentParameters as cGDParams)
 from moe.optimal_learning.python.base_prior import TophatPrior, NormalPrior
@@ -24,8 +26,8 @@ from moe.optimal_learning.python.base_prior import TophatPrior, NormalPrior
 DEFAULT_LENGTHSCALE_PRIOR = TophatPrior(-2, 5)
 DEFAULT_CAMPL_PRIOR = NormalPrior(12.5, 1.6)
 DEFAULT_PRIOR = DefaultPrior(n_dims=3 + 2, num_noise=1)
-DEFAULT_PRIOR.tophat = DEFAULT_CAMPL_PRIOR
-DEFAULT_PRIOR.ln_prior = DEFAULT_LENGTHSCALE_PRIOR
+DEFAULT_PRIOR.tophat = DEFAULT_LENGTHSCALE_PRIOR
+DEFAULT_PRIOR.ln_prior = DEFAULT_CAMPL_PRIOR
 
 # Default SGD
 DEFAULT_SGD_PARAMS = {
@@ -40,15 +42,26 @@ DEFAULT_SGD_PARAMS = {
 }
 
 
+@wrapt.decorator
+def _check_initialized(wrapped, instance, args, kwargs):
+    if instance.gp_loglikelihood is None:
+        print("Model has not been initialized! "
+              "Use '.step() or .initialize_model()' "
+              "to initialize optimizer")
+    else:
+        return wrapped(*args, **kwargs)
+
+
 class BayesianMOEOptimizer():
     def __init__(self,
                  objective_func,
                  samples_per_iteration,
                  bounds,
                  minimum_samples=10,
-                 prior=DefaultPrior,
+                 prior=None,
                  sgd_params=DEFAULT_SGD_PARAMS,
-                 maximize=False):
+                 maximize=False,
+                 epsilon=1e-3):
         '''
         Initialize default parameters for running a Bayesian optimization
         algorithm on an objective function with parameters.
@@ -75,11 +88,14 @@ class BayesianMOEOptimizer():
             maximize                    Boolean indicating whether the
                                         objective function is to be
                                         maximized instead of being minimized
+            epsilon                     Standard deviation convergence
+                                        threshold
 
         '''
 
         self.obj_func = objective_func
         self.sign = -1 if maximize else 1
+        self.epsilon = epsilon
 
         self.dims = bounds.shape[0]
         self.best_point_history = []
@@ -92,7 +108,13 @@ class BayesianMOEOptimizer():
         self.c_search_domain = cTensorProductDomain(moe_bounds)
 
         # TODO: Noise modelling will be supported later
-        self.prior = prior(n_dims=self.dims + 2, num_noise=1)
+        if prior is None:
+            self.prior = DefaultPrior(n_dims=self.dims + 2, num_noise=1)
+        elif not isinstance(prior, BasePrior):
+            raise ValueError("Prior must be of type BasePrior!")
+        else:
+            self.prior = prior
+
         self.sgd = cGDParams(**sgd_params)
         self.gp_loglikelihood = None
 
@@ -108,18 +130,44 @@ class BayesianMOEOptimizer():
         Returns a single Gaussian process model
         from the current ensemble
         '''
-        return self.gp_likelihood[0]
+        # TODO: Logging
+        if self.gp_loglikelihood is None:
+            return
+        return self.gp_loglikelihood.models[0]
 
     @property
     def current_best(self):
         '''
         Returns the current best input coordinate and value
         '''
+        # TODO: Logging
+        if self.gp_loglikelihood is None:
+            return
         history = self.gp.get_historical_data_copy()
         best_value = np.min(history._points_sampled_value)
         best_index = np.argmin(history._points_sampled_value)
-        best_coord = history.pointed_sampled[best_index]
+        best_coord = history.points_sampled[best_index]
         return best_coord, best_value
+
+    @property
+    def converged(self):
+        '''
+        Evaluates whether Bayesian optimization has converged.
+        Examines whether the standard deviation of the history of length
+        `self.min_samples` is below `self.epsilon`
+
+        If the minimum number of iterations have not been met, returns False
+        '''
+        # Minimum number of iterations have not been met
+        if not len(self.convergence_buffer) == self.convergence_buffer.maxlen:
+            return False
+
+        if self.gp_loglikelihood is None:
+            return False
+
+        best = np.min(self.gp._points_sampled_value)
+        deviation = sum([abs(x - best) for x in self.convergence_buffer])
+        return deviation < self.epsilon
 
     def initialize_model(self):
         '''
@@ -129,13 +177,13 @@ class BayesianMOEOptimizer():
 
         init_pts = self.search_domain\
             .generate_uniform_random_points_in_domain(self.num_samples)
-        observations = self.obj_func(init_pts)
+        observations = self.evaluate_objective(init_pts)
 
         history = HistoricalData(dim=self.dims, num_derivatives=0)
         history.append_sample_points(
             [SamplePoint(i, o, 0.0) for i, o in zip(init_pts, observations)])
 
-        self.gp_likelihood = GaussianProcessLogLikelihoodMCMC(
+        self.gp_loglikelihood = GaussianProcessLogLikelihoodMCMC(
             historical_data=history,
             derivatives=[],
             prior=self.prior,
@@ -144,8 +192,10 @@ class BayesianMOEOptimizer():
             n_hypers=2**4,
             noisy=False)
 
-        self.increment()
+        self.gp_loglikelihood.train()
+        self._increment()
 
+    @_check_initialized
     def update_model(self, evidence):
         '''
         Updates the current ensemble of models with
@@ -154,18 +204,20 @@ class BayesianMOEOptimizer():
         Arguments:
             evidence            New SamplePoint data
         '''
-        self.gp_likelihood.add_sampled_points(evidence)
-        self.gp_likelihood.train()
+        self.gp_loglikelihood.add_sampled_points(evidence)
+        self.gp_loglikelihood.train()
         return
 
+    @_check_initialized
     def _update_history(self):
         '''
         Update the history of best points with the
         current best point and value
         '''
-        best_coord, best_value = self.best_coord
+        best_coord, best_value = self.current_best
         self.best_point_history.append((best_coord, best_value))
 
+    @_check_initialized
     def propose_sampling_points(self):
         '''
         Performs stochastic gradient descent to optimize qEI function
@@ -180,16 +232,6 @@ class BayesianMOEOptimizer():
                                            self.sgd, self.num_samples)
         return samples, ei
 
-    def has_converged(self):
-        '''
-        Evaluates whether Bayesian optimization has converged.
-        Examines whether the standard deviation of the history of length
-        `self.min_samples` is below `self.tolerance`
-        '''
-        best = np.min(self.gp._points_sampled_value)
-        deviation = sum([abs(x - best) for x in self.convergence_buffer])
-        return deviation < self.tolerance
-
     def evaluate_objective(self, sampling_points):
         '''
         Evaluates the objective function at `sampling_points`
@@ -200,7 +242,7 @@ class BayesianMOEOptimizer():
         '''
 
         res = self.obj_func(sampling_points)
-        if not isinstance(res, np.array):
+        if not isinstance(res, np.ndarray):
             res = np.array(res)
 
         return self.sign * res
@@ -245,9 +287,10 @@ def get_default_tms_optimizer(f, num_samples, minimum_samples=10):
             - Log-normal covariance amplitude Ln(Normal(12.5, 1.6))
     '''
     # Set standard TMS bounds
-    bounds = np.r_[f.bounds, np.array([0, 180])]
+    bounds = f.bounds
+    bounds[2, :] = np.array([0, 180])
 
-    return BayesianMOEOptimizer(objective_func=f,
+    return BayesianMOEOptimizer(objective_func=f.evaluate,
                                 samples_per_iteration=num_samples,
                                 bounds=bounds,
                                 minimum_samples=minimum_samples,
