@@ -259,7 +259,7 @@ class BayesianMOEOptimizer():
         if self.iteration == 0:
             self.initialize_model()
         else:
-            sampling_points = self.propose_sampling_points()
+            sampling_points, qEI = self.propose_sampling_points()
             res = self.evaluate_objective(sampling_points)
             evidence = [
                 SamplePoint(c, v, 0.0) for c, v in zip(sampling_points, res)
@@ -323,7 +323,9 @@ def _gen_sample_from_qei(gp,
 
     qEI = ExpectedImprovement(gaussian_process=gp,
                               num_mc_iterations=int(num_mc))
-    optimizer = cGDOpt(search_domain, qEI, sgd_params)
+
+    # lhc_iter=2e4 doesn't actually matter since we're using SGD
+    optimizer = cGDOpt(search_domain, qEI, sgd_params, int(2e4))
     points_to_sample = meio(optimizer,
                             None,
                             num_samples,
