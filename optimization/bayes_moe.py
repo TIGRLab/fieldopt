@@ -173,15 +173,19 @@ class BayesianMOEOptimizer():
         '''
         Initialize the GaussianProcessLogLikelihood model using
         an initial set of observations
+
+        Returns:
+            init_pts            Initial sampling points
+            res                 Objective function evaluations of init_pts
         '''
 
         init_pts = self.search_domain\
             .generate_uniform_random_points_in_domain(self.num_samples)
-        observations = self.evaluate_objective(init_pts)
+        res = self.evaluate_objective(init_pts)
 
         history = HistoricalData(dim=self.dims, num_derivatives=0)
         history.append_sample_points(
-            [SamplePoint(i, o, 0.0) for i, o in zip(init_pts, observations)])
+            [SamplePoint(i, o, 0.0) for i, o in zip(init_pts, res)])
 
         self.gp_loglikelihood = GaussianProcessLogLikelihoodMCMC(
             historical_data=history,
@@ -194,6 +198,7 @@ class BayesianMOEOptimizer():
 
         self.gp_loglikelihood.train()
         self._increment()
+        return init_pts, res
 
     @_check_initialized
     def update_model(self, evidence):
@@ -267,7 +272,25 @@ class BayesianMOEOptimizer():
             self.update_model(evidence)
         self._update_history()
         self._increment()
-        return
+        return sampling_points, res, qEI
+
+    def into_iter(self):
+        '''
+        Returns an generator to perform
+        end-to-end optimization
+        '''
+        while not self.converged:
+            sampling_points, res, qEI = self.step()
+            best_point, best_val = self.current_best
+            yield {
+                    "best_point": best_point,
+                    "best_value": best_val,
+                    "iteration": self.iteration,
+                    "samples": sampling_points,
+                    "result": res,
+                    "qei": qEI,
+                    "converged": self.converged
+            }
 
 
 def get_default_tms_optimizer(f, num_samples, minimum_samples=10):
