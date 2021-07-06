@@ -275,7 +275,7 @@ class BayesianMOEOptimizer():
         self._increment()
         return sampling_points, res, qEI
 
-    def into_iter(self):
+    def iter(self):
         '''
         Returns an generator to perform
         end-to-end optimization

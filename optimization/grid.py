@@ -95,7 +95,7 @@ class GridOptimizer():
         self._increment()
         return sampling_points, res
 
-    def into_iter(self):
+    def iter(self):
         '''
         Returns an generator which can be run to
         perform end-to-end optimization
