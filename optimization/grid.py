@@ -1,6 +1,12 @@
 import numpy as np
 from sklearn.utils.extmath import cartesian
 
+import logging
+
+logger = logging.getLogger(__name__)
+if (logger.hasHandlers()):
+    logger.handlers.clear()
+
 
 class GridOptimizer():
     '''
@@ -97,7 +103,7 @@ def get_default_tms_optimizer(f, locdim, rotdim):
     '''
 
     sampling = (locdim, locdim, rotdim)
-    batchsize = f.cpus//2 - 1
+    batchsize = f.cpus // 2 - 1
     bounds = f.bounds
     bounds[2, :] = np.array([0, 180])
     return GridOptimizer(f.evaluate, batchsize, sampling, bounds)

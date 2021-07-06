@@ -22,6 +22,12 @@ from moe.optimal_learning.python.cpp_wrappers.optimization import (
     GradientDescentOptimizer as cGDOpt, GradientDescentParameters as cGDParams)
 from moe.optimal_learning.python.base_prior import TophatPrior, NormalPrior
 
+import logging
+
+logger = logging.getLogger(__name__)
+if (logger.hasHandlers()):
+    logger.handlers.clear()
+
 # Estimated from initial hyper-parameter optimization
 DEFAULT_LENGTHSCALE_PRIOR = TophatPrior(-2, 5)
 DEFAULT_CAMPL_PRIOR = NormalPrior(12.5, 1.6)
