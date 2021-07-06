@@ -39,13 +39,28 @@ class GridOptimizer():
         divisions = np.arange(batchsize, self.grid.shape[0], batchsize)
         self.batches = np.split(self.grid, divisions)
         self.batchsize = batchsize
+        logging.info(f"Will perform {len(self.batches)} iterations")
 
         self.obj_func = objective_func
         self.iteration = 0
 
         self.history = np.zeros((self.grid.shape[0], ), dtype=float)
+        self.maximize = maximize
 
-        self.sign = -1 if maximize else 1
+    def __str__(self):
+        return f'''
+        Configuration:
+        Batchsize: {self.batchsize}
+        Maximize: {self.maximize}
+
+        State:
+        Iteration: {self.iteration}
+        Current Best: {self.current_best}
+        '''
+
+    @property
+    def sign(self):
+        return -1 if self.maximize else 1
 
     def _increment(self):
         self.iteration += 1
@@ -55,6 +70,7 @@ class GridOptimizer():
 
         # No history is recorded
         if self.iteration == 0:
+            logging.error("No iterations have yet been performed!")
             return
 
         ind = np.argmin(self.history)
@@ -72,9 +88,11 @@ class GridOptimizer():
     def step(self):
 
         if self.iteration >= len(self.batches):
+            logging.warning("All parameters have been sampled!")
             raise StopIteration
 
         sampling_points = self.batches[self.iteration]
+        logging.debug(f"Sampling: {str(sampling_points)}")
         res = self.evaluate_objective(sampling_points)
 
         block_start = self.iteration * self.batchsize
