@@ -262,7 +262,8 @@ class BayesianMOEOptimizer():
             5. Increment iteration counter
         '''
         if self.iteration == 0:
-            self.initialize_model()
+            sampling_points, res = self.initialize_model()
+            qEI = None
         else:
             sampling_points, qEI = self.propose_sampling_points()
             res = self.evaluate_objective(sampling_points)
