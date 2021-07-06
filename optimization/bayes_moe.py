@@ -22,6 +22,12 @@ from moe.optimal_learning.python.cpp_wrappers.optimization import (
     GradientDescentOptimizer as cGDOpt, GradientDescentParameters as cGDParams)
 from moe.optimal_learning.python.base_prior import TophatPrior, NormalPrior
 
+import logging
+
+logger = logging.getLogger(__name__)
+if (logger.hasHandlers()):
+    logger.handlers.clear()
+
 # Estimated from initial hyper-parameter optimization
 DEFAULT_LENGTHSCALE_PRIOR = TophatPrior(-2, 5)
 DEFAULT_CAMPL_PRIOR = NormalPrior(12.5, 1.6)
@@ -45,9 +51,9 @@ DEFAULT_SGD_PARAMS = {
 @wrapt.decorator
 def _check_initialized(wrapped, instance, args, kwargs):
     if instance.gp_loglikelihood is None:
-        print("Model has not been initialized! "
-              "Use '.step() or .initialize_model()' "
-              "to initialize optimizer")
+        logging.error("Model has not been initialized! "
+                      "Use '.step() or .initialize_model()' "
+                      "to initialize optimizer")
     else:
         return wrapped(*args, **kwargs)
 
@@ -94,7 +100,7 @@ class BayesianMOEOptimizer():
         '''
 
         self.obj_func = objective_func
-        self.sign = -1 if maximize else 1
+        self.maximize = maximize
         self.epsilon = epsilon
 
         self.dims = bounds.shape[0]
@@ -109,6 +115,8 @@ class BayesianMOEOptimizer():
 
         # TODO: Noise modelling will be supported later
         if prior is None:
+            logging.warning("Using default prior from Cornell MOE")
+            logging.warning("Prior may be sub-optimal for problem " "domain!")
             self.prior = DefaultPrior(n_dims=self.dims + 2, num_noise=1)
         elif not isinstance(prior, BasePrior):
             raise ValueError("Prior must be of type BasePrior!")
@@ -125,6 +133,25 @@ class BayesianMOEOptimizer():
         self.iteration += 1
 
     @property
+    def sign(self):
+        return -1 if self.maximize else 1
+
+    def __str__(self):
+        return f'''
+        Configuration:
+        Samples/iteration: {self.num_samples}
+        Minimum Samples: {self.convergence_buffer.maxlen}
+        Epsilon: {self.epsilon}
+        Bounds: {str(self.bounds)}
+        Maximize: {self.maximize}
+
+        State:
+        Iteration: {self.iteration}
+        Current Best: {self.current_best}
+        Convergence: {self.convergence}
+        '''
+
+    @property
     def gp(self):
         '''
         Returns a single Gaussian process model
@@ -132,6 +159,9 @@ class BayesianMOEOptimizer():
         '''
         # TODO: Logging
         if self.gp_loglikelihood is None:
+            logging.warning("Model has not been initialized "
+                            "Use .initialize_model() or .step() to "
+                            "initialize GP model")
             return
         return self.gp_loglikelihood.models[0]
 
@@ -142,6 +172,9 @@ class BayesianMOEOptimizer():
         '''
         # TODO: Logging
         if self.gp_loglikelihood is None:
+            logging.warning("Model has not been initialized "
+                            "Use .initialize_model() or .step() to "
+                            "initialize GP model")
             return
         history = self.gp.get_historical_data_copy()
         best_value = np.min(history._points_sampled_value)
@@ -167,6 +200,7 @@ class BayesianMOEOptimizer():
 
         best = np.min(self.gp._points_sampled_value)
         deviation = sum([abs(x - best) for x in self.convergence_buffer])
+        logging.debug(f"Buffer standard deviation: {deviation}")
         return deviation < self.epsilon
 
     def initialize_model(self):
@@ -175,8 +209,10 @@ class BayesianMOEOptimizer():
         an initial set of observations
         '''
 
+        logging.debug(f"Initializing model with {self.num_samples} samples")
         init_pts = self.search_domain\
             .generate_uniform_random_points_in_domain(self.num_samples)
+        logging.debug(f"Initial samples: {init_pts}")
         observations = self.evaluate_objective(init_pts)
 
         history = HistoricalData(dim=self.dims, num_derivatives=0)
@@ -257,9 +293,13 @@ class BayesianMOEOptimizer():
             5. Increment iteration counter
         '''
         if self.iteration == 0:
+            logging.debug("Model has not yet been built! "
+                          "Initializing model..")
             self.initialize_model()
         else:
             sampling_points, qEI = self.propose_sampling_points()
+            logging.debug(f"Sampling points: {str(sampling_points)}")
+            logging.debug(f"q-Expected Improvement: {qEI}")
             res = self.evaluate_objective(sampling_points)
             evidence = [
                 SamplePoint(c, v, 0.0) for c, v in zip(sampling_points, res)
@@ -267,6 +307,7 @@ class BayesianMOEOptimizer():
             self.update_model(evidence)
         self._update_history()
         self._increment()
+        logging.debug(f"Current best is: {self.current_best}")
         return
 
 
