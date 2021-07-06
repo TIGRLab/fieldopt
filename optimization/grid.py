@@ -32,6 +32,7 @@ class GridOptimizer():
         # Construct batches for evaluation
         divisions = np.arange(batchsize, self.grid.shape[0], batchsize)
         self.batches = np.split(self.grid, divisions)
+        self.batchsize = batchsize
 
         self.obj_func = objective_func
         self.iteration = 0
@@ -99,4 +100,4 @@ def get_default_tms_optimizer(f, locdim, rotdim):
     batchsize = f.cpus//2 - 1
     bounds = f.bounds
     bounds[2, :] = np.array([0, 180])
-    return GridOptimizer(f, batchsize, sampling, bounds)
+    return GridOptimizer(f.evaluate, batchsize, sampling, bounds)
