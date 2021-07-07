@@ -198,10 +198,19 @@ class BayesianMOEOptimizer():
         if self.gp_loglikelihood is None:
             return False
 
-        best = np.min(self.gp._points_sampled_value)
-        deviation = sum([abs(x - best) for x in self.convergence_buffer])
-        logging.debug(f"Buffer standard deviation: {deviation}")
-        return deviation < self.epsilon
+        criterion = self._compute_convergence_criterion()
+        logging.debug(f"Buffer standard deviation: {criterion}")
+        return criterion < self.epsilon
+
+    @_check_initialized
+    def _compute_convergence_criterion(self):
+        '''
+        Compute the convergence criterion (sample standard deviation)
+        of the past self.min_samples evaluations
+        '''
+        _, best = self.current_best
+        deviation = np.linalg.norm(np.array(self.convergence_buffer) - best)
+        return deviation
 
     def initialize_model(self):
         '''
