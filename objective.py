@@ -17,10 +17,9 @@ from fieldopt import geolib
 
 from multiprocessing import Pool
 
-logging.basicConfig(
-    format='[%(levelname)s - %(name)s.%(funcName)5s() ] %(message)s',
-    level=logging.INFO)
 logger = logging.getLogger(__name__)
+if (logger.hasHandlers()):
+    logger.handlers.clear()
 
 
 class FieldFunc():
