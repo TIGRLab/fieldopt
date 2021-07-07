@@ -272,6 +272,9 @@ class BayesianMOEOptimizer():
             ]
             self.update_model(evidence)
         self._update_history()
+
+        _, best = self.current_best
+        self.convergence_buffer.append(best)
         self._increment()
         return sampling_points, res, qEI
 
