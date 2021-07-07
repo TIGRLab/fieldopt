@@ -183,6 +183,10 @@ class BayesianMOEOptimizer():
         return best_coord, best_value
 
     @property
+    def buffer_filled(self):
+        return len(self.convergence_buffer) == self.convergence_buffer.maxlen
+
+    @property
     def converged(self):
         '''
         Evaluates whether Bayesian optimization has converged.
@@ -192,7 +196,7 @@ class BayesianMOEOptimizer():
         If the minimum number of iterations have not been met, returns False
         '''
         # Minimum number of iterations have not been met
-        if not len(self.convergence_buffer) == self.convergence_buffer.maxlen:
+        if not self.buffer_filled:
             return False
 
         if self.gp_loglikelihood is None:
@@ -338,14 +342,21 @@ class BayesianMOEOptimizer():
         while not self.converged:
             sampling_points, res, qEI = self.step()
             best_point, best_val = self.current_best
+
+            if self.buffer_filled:
+                criterion = self._compute_convergence_criterion()
+            else:
+                criterion = None
+
             yield {
-                    "best_point": best_point,
-                    "best_value": best_val,
-                    "iteration": self.iteration,
-                    "samples": sampling_points,
-                    "result": res,
-                    "qei": qEI,
-                    "converged": self.converged
+                "best_point": best_point,
+                "best_value": best_val,
+                "iteration": self.iteration,
+                "samples": sampling_points,
+                "result": res,
+                "qei": qEI,
+                "criterion": criterion,
+                "converged": self.converged
             }
         logging.debug(f"Current best is: {self.current_best}")
         return
