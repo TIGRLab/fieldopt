@@ -226,6 +226,7 @@ class BayesianMOEOptimizer():
             res                 Objective function evaluations of init_pts
         '''
 
+        self.iteration = 0
         logging.debug(f"Initializing model with {self.num_samples} samples")
         init_pts = self.search_domain\
             .generate_uniform_random_points_in_domain(self.num_samples)
@@ -247,7 +248,6 @@ class BayesianMOEOptimizer():
             noisy=False)
 
         self.gp_loglikelihood.train()
-        self._increment()
         return init_pts, res
 
     @_check_initialized
@@ -316,7 +316,6 @@ class BayesianMOEOptimizer():
             qEI = None
             logging.debug("Model has not yet been built! "
                           "Initializing model..")
-            self.initialize_model()
         else:
             sampling_points, qEI = self.propose_sampling_points()
             logging.debug(f"Sampling points: {str(sampling_points)}")
