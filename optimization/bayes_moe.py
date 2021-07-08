@@ -183,6 +183,10 @@ class BayesianMOEOptimizer():
         return best_coord, best_value
 
     @property
+    def buffer_filled(self):
+        return len(self.convergence_buffer) == self.convergence_buffer.maxlen
+
+    @property
     def converged(self):
         '''
         Evaluates whether Bayesian optimization has converged.
@@ -192,7 +196,7 @@ class BayesianMOEOptimizer():
         If the minimum number of iterations have not been met, returns False
         '''
         # Minimum number of iterations have not been met
-        if not len(self.convergence_buffer) == self.convergence_buffer.maxlen:
+        if not self.buffer_filled:
             return False
 
         if self.gp_loglikelihood is None:
@@ -216,17 +220,23 @@ class BayesianMOEOptimizer():
         '''
         Initialize the GaussianProcessLogLikelihood model using
         an initial set of observations
+
+        Returns:
+            init_pts            Initial sampling points
+            res                 Objective function evaluations of init_pts
         '''
 
+        self.iteration = 0
         logging.debug(f"Initializing model with {self.num_samples} samples")
         init_pts = self.search_domain\
             .generate_uniform_random_points_in_domain(self.num_samples)
+
+        res = self.evaluate_objective(init_pts)
         logging.debug(f"Initial samples: {init_pts}")
-        observations = self.evaluate_objective(init_pts)
 
         history = HistoricalData(dim=self.dims, num_derivatives=0)
         history.append_sample_points(
-            [SamplePoint(i, o, 0.0) for i, o in zip(init_pts, observations)])
+            [SamplePoint(i, o, 0.0) for i, o in zip(init_pts, res)])
 
         self.gp_loglikelihood = GaussianProcessLogLikelihoodMCMC(
             historical_data=history,
@@ -238,7 +248,7 @@ class BayesianMOEOptimizer():
             noisy=False)
 
         self.gp_loglikelihood.train()
-        self._increment()
+        return init_pts, res
 
     @_check_initialized
     def update_model(self, evidence):
@@ -302,9 +312,10 @@ class BayesianMOEOptimizer():
             5. Increment iteration counter
         '''
         if self.iteration == 0:
+            sampling_points, res = self.initialize_model()
+            qEI = None
             logging.debug("Model has not yet been built! "
                           "Initializing model..")
-            self.initialize_model()
         else:
             sampling_points, qEI = self.propose_sampling_points()
             logging.debug(f"Sampling points: {str(sampling_points)}")
@@ -315,7 +326,37 @@ class BayesianMOEOptimizer():
             ]
             self.update_model(evidence)
         self._update_history()
+
+        _, best = self.current_best
+        self.convergence_buffer.append(best)
         self._increment()
+
+        return sampling_points, res, qEI
+
+    def iter(self):
+        '''
+        Returns an generator to perform
+        end-to-end optimization
+        '''
+        while not self.converged:
+            sampling_points, res, qEI = self.step()
+            best_point, best_val = self.current_best
+
+            if self.buffer_filled:
+                criterion = self._compute_convergence_criterion()
+            else:
+                criterion = None
+
+            yield {
+                "best_point": best_point,
+                "best_value": best_val,
+                "iteration": self.iteration,
+                "samples": sampling_points,
+                "result": res,
+                "qei": qEI,
+                "criterion": criterion,
+                "converged": self.converged
+            }
         logging.debug(f"Current best is: {self.current_best}")
         return
 
