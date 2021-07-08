@@ -4,8 +4,6 @@ from sklearn.utils.extmath import cartesian
 import logging
 
 logger = logging.getLogger(__name__)
-if (logger.hasHandlers()):
-    logger.handlers.clear()
 
 
 class GridOptimizer():

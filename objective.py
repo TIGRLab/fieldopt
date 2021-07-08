@@ -1,25 +1,22 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import os
-import tempfile
 import logging
-from shutil import copytree, move
 
 import numpy as np
 from numpy.linalg import norm as vecnorm
 
 from simnibs import cond
 from simnibs.msh import mesh_io
-from simnibs.simulation.fem import (FEMSystem, _set_up_global_solver, _run_tms)
+from simnibs.simulation.fem import (FEMSystem, _set_up_global_solver,
+                                    calc_fields)
+import simnibs.simulation.coil_numpy as coil_lib
 
 from fieldopt import geolib
 
 from multiprocessing import Pool
 
 logger = logging.getLogger(__name__)
-if (logger.hasHandlers()):
-    logger.handlers.clear()
 
 
 class FieldFunc():
@@ -44,7 +41,6 @@ class FieldFunc():
                  mesh_file,
                  initial_centroid,
                  tet_weights,
-                 field_dir,
                  coil,
                  span=35,
                  local_span=8,
@@ -59,8 +55,6 @@ class FieldFunc():
             initial_centroid            Initial point to grow sampling region
             tet_weights                 Weighting scores for each tetrahedron
                                         (1D array ordered by node ID)
-            field_dir                   Directory to perform simulation
-                                        experiments in
             coil                        TMS coil file (either dA/dt volume or
                                         coil geometry)
             span                        Radius of points to include in
@@ -71,11 +65,12 @@ class FieldFunc():
             distance                    Distance from coil to head surface
             didt                        Intensity of stimulation
             cpus                        Number of cpus to use for simulation
+            solver_options              Options to pass into SimNIBS to
+                                        configure solver
         '''
 
         self.mesh = mesh_file
         self.tw = tet_weights
-        self.field_dir = field_dir
         self.coil = coil
         self.didt = didt
         logger.info(f"Configured to use {cpus} cpus...")
@@ -149,7 +144,6 @@ class FieldFunc():
 
         print('Mesh:', self.mesh)
         print('Coil:', self.coil)
-        print('Field Directory:', self.field_dir)
         return ''
 
     def get_bounds(self):
@@ -252,92 +246,66 @@ class FieldFunc():
                                                   self.normflip * n)
         return o_matrix
 
-    def _get_simulation_outnames(self, num_sims, sim_dir):
+    def _simulate(self, matsimnib, didt, out_geo=None, out_sim=None):
+        '''
+        Re-implementation of SimNIBS _run_tms function to return
+        mesh object rather than to write to a file
+        '''
 
-        simu_name = os.path.join(sim_dir, 'TMS_{}'.format(1))
-        coil_name = os.path.splitext(os.path.basename(self.coil))[0]
+        # SimNIBS core routine
+        dAdt = coil_lib.set_up_tms(self.cached_mesh,
+                                   self.coil,
+                                   matsimnib,
+                                   didt,
+                                   fn_geo=out_geo)
+        b = self.FEMSystem.assemble_tms_rhs(dAdt)
+        v = self.FEMSystem.solve(b)
+        v = mesh_io.NodeData(v, name='v', mesh=self.cached_mesh)
+        v.mesh = self.cached_mesh
+        res = calc_fields(v, self.FIELDS, cond=self.cond, dadt=dAdt)
 
-        fn_simu = [
-            "{0}-{1:0=4d}_{2}_".format(simu_name, i + 1, coil_name)
-            for i in range(num_sims)
-        ]
-        output_names = [f + 'scalar.msh' for f in fn_simu]
-        geo_names = [f + 'coil_pos.geo' for f in fn_simu]
+        if out_sim:
+            mesh_io.write_msh(res, out_sim)
 
-        return output_names, geo_names
+        # Extract scores
+        return self._calculate_score(res)
 
-    def _simulate(self, matsimnib, didt, fn_out, fn_geo):
-        _run_tms(self.cached_mesh, self.cond, self.coil, self.FIELDS,
-                 matsimnib, didt, fn_out, fn_geo)
-
-    def _run_simulation(self, matsimnibs, sim_dir):
+    def _run_simulation(self, matsimnibs, out):
 
         if not isinstance(matsimnibs, list):
             matsimnibs = [matsimnibs]
+
+        if out:
+            out_geos = [f"{out}_coil_{i}.geo" for i in range(len(matsimnibs))]
+            out_sims = [
+                f"{out}_fields_{i}.msh" for i in range(len(matsimnibs))
+            ]
+        else:
+            out_geos = [None] * len(matsimnibs)
+            out_sims = [None] * len(matsimnibs)
 
         # Construct standard inputs
         logger.info('Constructing inputs for simulation...')
         logger.info(f'Using didt={self.didt}')
         didt_list = [self.didt] * len(matsimnibs)
 
-        output_names, geo_names = self._get_simulation_outnames(
-            len(matsimnibs), sim_dir)
-
         if self.cpus == 1:
+            res = []
             _set_up_global_solver(self.FEMSystem)
-            for args in zip(matsimnibs, didt_list, output_names, geo_names):
-                self._simulate(*args)
+            for args in zip(matsimnibs, didt_list, out_geos, out_sims):
+                res.append(self._simulate(*args))
         else:
             logging.info(f"Running {len(matsimnibs)} simulations using "
                          f"{self.cpus} processes")
             with Pool(processes=self.cpus,
                       initializer=_set_up_global_solver,
                       initargs=(self.FEMSystem, )) as pool:
-
-                # Blocking main process
-                pool.starmap(
+                res = pool.starmap(
                     self._simulate,
-                    zip(matsimnibs, didt_list, output_names, geo_names))
+                    zip(matsimnibs, didt_list, out_geos, out_sims))
 
         logger.info('Successfully completed simulations!')
-        return sorted(output_names)
-
-    def run_simulation(self, coord, out_sim, out_geo):
-        '''
-        Given a quadratic surface input (x,y) and a rotational
-        interpolation angle (theta) run a simulation and
-        save the resulting output into <out_dir>
-
-        Arguments:
-            [(x,y,theta),...]           A iterable of iterable (x,y,theta)
-
-        Returns:
-            sim_file                    Path to simulation file
-                                        in output directory
-            score                       Score
-        '''
-
-        logger.info('Transforming inputs...')
-        matsimnibs = self._transform_input(*coord)
-
-        # Run simulation in a temporary directory
-        with tempfile.TemporaryDirectory(dir=self.field_dir) as sim_dir:
-            logger.info('Running simulation')
-            sim_file = self._run_simulation(matsimnibs, sim_dir)[0]
-
-            logger.info('Calculating Score...')
-            scores = self._calculate_score(sim_file)
-            logger.info('Successfully pulled scores!')
-
-            sim_names, geo_names = self._get_simulation_outnames(1, sim_dir)
-
-            # Transfer files to destination
-            logger.info('Transferring files to destination')
-            move(geo_names[0], out_geo)
-            move(sim_names[0], out_sim)
-            logger.info('Succesfully transferred files')
-
-        return scores, matsimnibs
+        return res
 
     def _get_tet_ids(self, entity):
         '''
@@ -347,7 +315,7 @@ class FieldFunc():
         tet_ids = np.where(self.cached_mesh.elm.tag1 == entity[1])
         return tet_ids
 
-    def _calculate_score(self, sim_file):
+    def _calculate_score(self, sim_msh):
         '''
         Given a simulation output file, compute the score
 
@@ -356,12 +324,8 @@ class FieldFunc():
         more complex geometry.
         '''
 
-        logger.info('Loading gmsh elements from {}...'.format(sim_file))
         tet_ids = self._get_tet_ids(self.FIELD_ENTITY)
-
-        logger.info('Pulling field values from {}...'.format(sim_file))
-        normE = get_field_subset(sim_file, tet_ids)
-        logger.info('Successfully pulled field values!')
+        normE = sim_msh.elmdata[1].value[tet_ids]
 
         neg_ind = np.where(normE < 0)
         normE[neg_ind] = 0
@@ -371,7 +335,7 @@ class FieldFunc():
         scores = self.tw * normE * vols
         return scores.sum()
 
-    def evaluate(self, input_list, out_dir=None):
+    def evaluate(self, input_list, out_basename=None):
         '''
         Given a quadratic surface input (x,y) and rotational
         interpolation angle (theta) compute the resulting field score
@@ -383,25 +347,12 @@ class FieldFunc():
             scores                      An array of scores in order of inputs
         '''
 
-        with tempfile.TemporaryDirectory(dir=self.field_dir) as sim_dir:
+        logger.info('Transforming inputs...')
+        matsimnibs = [self._transform_input(x, y, t) for x, y, t in input_list]
 
-            logger.info('Transforming inputs...')
-            matsimnibs = [
-                self._transform_input(x, y, t) for x, y, t in input_list
-            ]
-
-            logger.info('Running simulations...')
-            sim_files = self._run_simulation(matsimnibs, sim_dir)
-            logger.info('Successfully completed simulations!')
-
-            logger.info('Calculating Scores...')
-            scores = np.array([self._calculate_score(s) for s in sim_files])
-            logger.info('Successfully pulled scores!')
-
-            if out_dir is not None:
-                logger.info('Storing outputs!')
-                copytree(sim_dir, out_dir, dirs_exist_ok=True)
-                logger.info(f'Successfully stored outputs in {out_dir}')
+        logger.info('Running simulations...')
+        scores = self._run_simulation(matsimnibs, out_basename)
+        logger.info('Successfully completed simulations!')
 
         return scores
 
@@ -439,22 +390,3 @@ class FieldFunc():
 
         # Compute distance
         return np.linalg.norm(p0 - pos)
-
-
-def get_field_subset(field_msh, tag_list):
-    '''
-    From a .msh file outputted from running a TMS field simulation
-    extract the field magnitude values of elements provided for in tag_list
-
-    field_msh  --  Path to .msh file result from TMS simulation
-    tag_list   --  List of element tags to use as subset
-
-    Output:
-    normE      --  List of electric field norms (magnitudes)
-                   subsetted according to tag_list
-    '''
-
-    msh = mesh_io.read_msh(field_msh)
-    norm_E = msh.elmdata[1].value
-
-    return norm_E[tag_list]

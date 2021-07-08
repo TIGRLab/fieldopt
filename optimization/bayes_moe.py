@@ -25,8 +25,6 @@ from moe.optimal_learning.python.base_prior import TophatPrior, NormalPrior
 import logging
 
 logger = logging.getLogger(__name__)
-if (logger.hasHandlers()):
-    logger.handlers.clear()
 
 # Estimated from initial hyper-parameter optimization
 DEFAULT_LENGTHSCALE_PRIOR = TophatPrior(-2, 5)
