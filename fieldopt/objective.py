@@ -12,7 +12,7 @@ from simnibs.simulation.fem import (FEMSystem, _set_up_global_solver,
                                     calc_fields)
 import simnibs.simulation.coil_numpy as coil_lib
 
-from fieldopt import geolib
+from fieldopt import geometry
 
 from multiprocessing import Pool
 
@@ -106,8 +106,8 @@ class FieldFunc():
         '''
 
         logger.info('Loading in coordinate data from mesh file...')
-        self.nodes, self.coords, _ = geolib.load_gmsh_nodes(self.mesh, (2, 5))
-        _, _, trigs = geolib.load_gmsh_elems(self.mesh, (2, 5))
+        self.nodes, self.coords, _ = geometry.load_gmsh_nodes(self.mesh, (2, 5))
+        _, _, trigs = geometry.load_gmsh_elems(self.mesh, (2, 5))
         self.trigs = np.array(trigs).reshape(-1, 3)
         logger.info('Successfully pulled in node and element data!')
 
@@ -155,13 +155,13 @@ class FieldFunc():
         to use for sampling
         '''
 
-        v = geolib.closest_point2surf(centroid, self.coords)
+        v = geometry.closest_point2surf(centroid, self.coords)
         C, R, iR = self._construct_local_quadric(v, 0.75 * span)
 
         # Calculate neighbours, rotate to flatten on XY plane
         neighbours_ind = np.where(vecnorm(self.coords - v, axis=1) < span)
         neighbours = self.coords[neighbours_ind]
-        r_neighbours = geolib.affine(R, neighbours)
+        r_neighbours = geometry.affine(R, neighbours)
         minarr = np.min(r_neighbours, axis=0)
         maxarr = np.max(r_neighbours, axis=0)
 
@@ -181,7 +181,7 @@ class FieldFunc():
         neighbours = self.coords[neighbours_ind]
 
         # Calculate normals
-        normals = geolib.get_normals(self.nodes[neighbours_ind], self.nodes,
+        normals = geometry.get_normals(self.nodes[neighbours_ind], self.nodes,
                                      self.coords, self.trigs)
 
         # Usage average of normals for alignment
@@ -190,7 +190,7 @@ class FieldFunc():
         # Make transformation matrix
         z = np.array([0, 0, 1])
         R = np.eye(4)
-        R[:3, :3] = geolib.rotate_vec2vec(n, z)
+        R[:3, :3] = geometry.rotate_vec2vec(n, z)
         T = np.eye(4)
         T[:3, 3] = -p
         affine = R @ T
@@ -205,8 +205,8 @@ class FieldFunc():
         i_affine = iT @ iR
 
         # Perform quadratic fitting
-        r_neighbours = geolib.affine(affine, neighbours)
-        C = geolib.quad_fit(r_neighbours[:, :2], r_neighbours[:, 2])
+        r_neighbours = geometry.affine(affine, neighbours)
+        C = geometry.quad_fit(r_neighbours[:, :2], r_neighbours[:, 2])
 
         return C, affine, i_affine
 
@@ -216,11 +216,11 @@ class FieldFunc():
         get accurate normals/curvatures
         '''
 
-        pp = geolib.map_param_2_surf(x, y, self.C)[np.newaxis, :]
-        p = geolib.affine(self.iR, pp)
-        v = geolib.closest_point2surf(p, self.coords)
+        pp = geometry.map_param_2_surf(x, y, self.C)[np.newaxis, :]
+        p = geometry.affine(self.iR, pp)
+        v = geometry.closest_point2surf(p, self.coords)
         C, _, iR = self._construct_local_quadric(v, self.geo_radius)
-        _, _, n = geolib.compute_principal_dir(0, 0, C)
+        _, _, n = geometry.compute_principal_dir(0, 0, C)
 
         # Map normal to coordinate space
         n_r = iR[:3, :3] @ n
@@ -238,11 +238,11 @@ class FieldFunc():
         '''
 
         sample, R, C, _ = self._construct_sample(x, y)
-        preaff_rot, preaff_norm = geolib.map_rot_2_surf(0, 0, theta, C)
+        preaff_rot, preaff_norm = geometry.map_rot_2_surf(0, 0, theta, C)
         rot = R[:3, :3] @ preaff_rot
         n = R[:3, :3] @ preaff_norm
 
-        o_matrix = geolib.define_coil_orientation(sample, rot,
+        o_matrix = geometry.define_coil_orientation(sample, rot,
                                                   self.normflip * n)
         return o_matrix
 
