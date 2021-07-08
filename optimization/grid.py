@@ -64,7 +64,16 @@ class GridOptimizer():
         self.iteration += 1
 
     @property
+    def completed(self):
+        return self.iteration >= len(self.batches)
+
+    @property
     def current_best(self):
+        '''
+        Returns:
+            best_coord          Best parameter coordinate
+            best_value          Current minimum of objective function
+        '''
 
         # No history is recorded
         if self.iteration == 0:
@@ -84,9 +93,16 @@ class GridOptimizer():
         return self.sign * res
 
     def step(self):
+        '''
+        Perform one iteration of grid optimization using
+        up to self.batchsize evaluations
 
-        if self.iteration >= len(self.batches):
-            logging.warning("All parameters have been sampled!")
+        Returns:
+            sampling_points     Points sampled on iteration
+            res                 Resultant values
+        '''
+
+        if self.completed:
             raise StopIteration
 
         sampling_points = self.batches[self.iteration]
@@ -98,7 +114,24 @@ class GridOptimizer():
         self.history[block_start:block_end] = res
 
         self._increment()
-        return
+        return sampling_points, res
+
+    def iter(self):
+        '''
+        Returns an generator which can be run to
+        perform end-to-end optimization
+        '''
+
+        while not self.completed:
+            sampling_points, res = self.step()
+            best_point, best_val = self.current_best
+            yield {
+                "best_point": best_point,
+                "best_value": best_val,
+                "iteration": self.iteration,
+                "samples": sampling_points,
+                "result": res
+            }
 
 
 def get_default_tms_optimizer(f, locdim, rotdim):
