@@ -135,6 +135,7 @@ class FieldFunc():
         self.FEMSystem = FEMSystem.tms(self.cached_mesh,
                                        self.cond,
                                        solver_options=self.solver_opt)
+        self._solver = self.FEMSystem._solver
         logger.info("Completed FEM initialization")
         return
 
@@ -271,6 +272,25 @@ class FieldFunc():
         # Extract scores
         return self._calculate_score(res)
 
+    def _prepare_tms_matrix(self, m):
+        '''
+        Construct right hand side of the TMS linear
+        problem
+        '''
+
+        # Compute dA/dt for coil posiion on mesh
+        dadt = coil_lib.set_up_tms(self.cached_mesh, self.coil,
+                m, self.didt)
+        dof_map = copy.deepcopy(self.FEMSystem.dof_map)
+
+        # Assemble b
+        b = self.FEMSystem.assemble_tms_rhs(dadt)
+        return self.FEMSystem.dirchlet.apply_to_rhs(
+                self.FEMSystem.A,
+                b,
+                dof_map
+        )
+
     def _run_simulation(self, matsimnibs, out):
 
         if not isinstance(matsimnibs, list):
@@ -285,25 +305,19 @@ class FieldFunc():
             out_geos = [None] * len(matsimnibs)
             out_sims = [None] * len(matsimnibs)
 
-        # Construct standard inputs
-        logger.info('Constructing inputs for simulation...')
-        logger.info(f'Using didt={self.didt}')
-        didt_list = [self.didt] * len(matsimnibs)
+        # Only this part needs to be multiproc'd
+        logger.info('Constructing right-hand side of FEM...')
+        start = time.time()
+        with Pool(processes=self.cpus) as pool:
+            B = pool.apply(self._prepare_tms_matrix, matsimnibs)
+        end = time.time()
+        logger.info(f"Took {end-start:.2f}")
 
-        if self.cpus == 1:
-            res = []
-            _set_up_global_solver(self.FEMSystem)
-            for args in zip(matsimnibs, didt_list, out_geos, out_sims):
-                res.append(self._simulate(*args))
-        else:
-            logging.info(f"Running {len(matsimnibs)} simulations using "
-                         f"{self.cpus} processes")
-            with Pool(processes=self.cpus,
-                      initializer=_set_up_global_solver,
-                      initargs=(self.FEMSystem, )) as pool:
-                res = pool.starmap(
-                    self._simulate,
-                    zip(matsimnibs, didt_list, out_geos, out_sims))
+        # Each column vector is a TMS coil position
+        V = self._solver.solve(B)
+        
+        # Need a more efficient routine to compute scores
+
 
         logger.info('Successfully completed simulations!')
         return res
