@@ -106,7 +106,8 @@ class FieldFunc():
         '''
 
         logger.info('Loading in coordinate data from mesh file...')
-        self.nodes, self.coords, _ = geometry.load_gmsh_nodes(self.mesh, (2, 5))
+        self.nodes, self.coords, _ = geometry.load_gmsh_nodes(
+            self.mesh, (2, 5))
         _, _, trigs = geometry.load_gmsh_elems(self.mesh, (2, 5))
         self.trigs = np.array(trigs).reshape(-1, 3)
         logger.info('Successfully pulled in node and element data!')
@@ -182,7 +183,7 @@ class FieldFunc():
 
         # Calculate normals
         normals = geometry.get_normals(self.nodes[neighbours_ind], self.nodes,
-                                     self.coords, self.trigs)
+                                       self.coords, self.trigs)
 
         # Usage average of normals for alignment
         n = normals / vecnorm(normals)
@@ -243,7 +244,7 @@ class FieldFunc():
         n = R[:3, :3] @ preaff_norm
 
         o_matrix = geometry.define_coil_orientation(sample, rot,
-                                                  self.normflip * n)
+                                                    self.normflip * n)
         return o_matrix
 
     def _simulate(self, matsimnib, didt, out_geo=None, out_sim=None):
