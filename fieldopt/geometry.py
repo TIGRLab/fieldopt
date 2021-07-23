@@ -52,8 +52,12 @@ def rotate_vec2vec(v1, v2):
     n = np.cross(v1, v2)
     sinv = vecnorm(n)
     cosv = np.dot(v1, v2)
-    R = np.eye(3) + skew(n) + np.matmul(skew(n), skew(n)) * (1 - cosv) / (sinv
-                                                                          **2)
+    R = (
+            np.eye(3)
+            + skew(n)
+            + np.matmul(skew(n), skew(n))
+            * (1 - cosv) / (sinv ** 2)
+        )
     return R
 
 
@@ -119,7 +123,7 @@ def compute_principal_dir(x, y, C):
     return V[:, 0], V[:, 1], n
 
 
-def interpolate_angle(u, v, t, l=90.0):
+def interpolate_angle(u, v, t, l=90.0):  # noqa: E741
     '''
     Perform cosine angle interpolation between two orthogonal vectors u and v
 
@@ -144,8 +148,10 @@ def quadratic_surf(x, y, C):
     C -- quadratic constants vector (a,b,c,d,e,f)
     '''
 
-    return C[
-        0] + C[1] * x + C[2] * y + C[3] * x * y + C[4] * x * x + C[5] * y * y
+    return (
+            C[0] + C[1] * x + C[2] * y
+            + C[3] * x * y + C[4] * x * x + C[5] * y * y
+    )
 
 
 def map_param_2_surf(x, y, C):
@@ -464,7 +470,6 @@ def ray_interception(pn, pf, coords, trigs, epsilon=1e-6):
         p_I = i_p[within_trig][argmin_r]
         ray_len = vecnorm(p_I - pn)
 
-        # Return point of intersection point, ray length, and triangle with minimum
         return (p_I, ray_len, min_trig)
     else:
         return (None, None, None)
