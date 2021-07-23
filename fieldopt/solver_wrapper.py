@@ -35,12 +35,13 @@ class Pardiso:
 class PETSc:
     def __init__(self, A, solver_opt=DEFAULT_SOLVER_OPTIONS):
         logger.info("Using PetSC solver")
-        self.solver = petsc_solver.Solver(solver_opt, A)
+        self.A = A
+        self.solver_opt = solver_opt
         logger.info("Initialized PetSC!")
 
 
     def solve(self, B):
-        self.solver.solve(B)
+        petsc_solver.petsc_solve(self.solver_opt, self.A, B)
 
 def get_solver(solver, A):
     solvers = {
