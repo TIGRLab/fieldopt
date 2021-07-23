@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # coding: utf-8
 
 import logging
@@ -9,7 +8,6 @@ import copy
 import numpy as np
 from numpy.linalg import norm as vecnorm
 import mkl
-from pypardiso import PyPardisoSolver
 import scipy.sparse as sparse
 
 from simnibs import cond
@@ -18,10 +16,10 @@ from simnibs.simulation.fem import FEMSystem
 import simnibs.simulation.coil_numpy as coil_lib
 
 from fieldopt import geometry
+from fieldopt.solver_wrapper import get_solver
 
 
 logger = logging.getLogger(__name__)
-
 
 class FieldFunc():
     '''
@@ -51,7 +49,8 @@ class FieldFunc():
                  distance=1,
                  didt=1e6,
                  nworkers=1,
-                 nthreads=None):
+                 nthreads=None,
+                 solver='pardiso'):
         '''
         Standard constructor
         Arguments:
@@ -73,6 +72,8 @@ class FieldFunc():
                                         (compute B)
             nthreads                    Maximum number of physical cores
                                         for solver to use [Default: use all]
+            solver                      Solver to use to compute FEM solution
+                                        [Default: pardiso]
         '''
 
         self.mesh = mesh_file
@@ -91,8 +92,7 @@ class FieldFunc():
             self.normflip = -1
 
         self.FEMSystem = None
-        self.solver = PyPardisoSolver()
-        self.initialize()
+        self.initialize(solver)
         self.num_workers = nworkers
 
         if nthreads:
@@ -120,7 +120,7 @@ class FieldFunc():
             mkl.set_dynamic(0)
             mkl.set_num_threads(mkl_threads)
 
-    def initialize(self):
+    def initialize(self, solver):
         '''
         Initialize objective function to allow for objective
         function evaluations.
@@ -173,12 +173,8 @@ class FieldFunc():
         if self.FEMSystem.dirichlet is not None:
             A, _ = self.FEMSystem.dirichlet.apply_to_matrix(
                         A, dof_map)
-        logger.info("Factorizing A")
-        start = time.time()
-        self.solver.factorize(A)
-        end = time.time()
-        logger.info(f"Factorized A in {end - start:.2f} seconds")
-        self._factorized_A = A
+        logger.info("Preparing solver...")
+        self.solver = get_solver(solver, A)
         logger.info("Completed initialization successfully!")
         return
 
@@ -336,7 +332,7 @@ class FieldFunc():
         logger.info(f"Took {end-start:.2f}")
 
         # Each column vector is a TMS coil position
-        X = self.solver.solve(self._factorized_A, B)
+        X = self.solver.solve(B)
         return X
 
     def _get_tet_ids(self, entity):
@@ -422,3 +418,4 @@ class FieldFunc():
 
         # Compute distance
         return np.linalg.norm(p0 - pos)
+
