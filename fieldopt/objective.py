@@ -12,7 +12,7 @@ import scipy.sparse as sparse
 
 from simnibs import cond
 from simnibs.msh import mesh_io
-from simnibs.simulation.fem import FEMSystem
+from simnibs.simulation.fem import FEMSystem, calc_fields
 import simnibs.simulation.coil_numpy as coil_lib
 
 from fieldopt import geometry
@@ -20,6 +20,7 @@ from fieldopt.solver_wrapper import get_solver
 
 
 logger = logging.getLogger(__name__)
+
 
 class FieldFunc():
     '''
@@ -37,7 +38,7 @@ class FieldFunc():
 
     FIELD_ENTITY = (3, 2)
     PIAL_ENTITY = (2, 1002)
-    FIELDS = ['E', 'e', 'J', 'j']
+    FIELDS = ['e']
 
     def __init__(self,
                  mesh_file,
@@ -104,6 +105,8 @@ class FieldFunc():
         state["cached_mesh"] = self.cached_mesh
         state["coil"] = self.coil
         state["FEMSystem"] = self.FEMSystem
+        state["cond"] = self.cond
+        state["tw"] = self.tw
         return state
 
     def set_num_threads(self, mkl_threads):
@@ -295,17 +298,17 @@ class FieldFunc():
 
         # Compute dA/dt for coil posiion on mesh
         dadt = coil_lib.set_up_tms(self.cached_mesh, self.coil,
-                m, self.didt)
+                                   m, self.didt)
         dof_map = copy.deepcopy(self.FEMSystem.dof_map)
 
         # Assemble b
         b = self.FEMSystem.assemble_tms_rhs(dadt)
-        b, _ = self.FEMSystem.dirichlet.apply_to_rhs(
+        b, dof_map = self.FEMSystem.dirichlet.apply_to_rhs(
                 self.FEMSystem.A,
                 b,
                 dof_map
         )
-        return b
+        return b, dof_map
 
     def _run_simulation(self, matsimnibs, out):
 
@@ -325,15 +328,38 @@ class FieldFunc():
         logger.info('Constructing right-hand side of FEM AX=B...')
         start = time.time()
         with mp.Pool(processes=self.num_workers) as pool:
-            B = np.stack(
-                    pool.map(self._prepare_tms_matrix, matsimnibs),
-                    axis=1)
-        end = time.time()
-        logger.info(f"Took {end-start:.2f}")
+            res = pool.map(self._prepare_tms_matrix, matsimnibs)
+            end = time.time()
+            logger.info(f"Took {end-start:.2f}")
 
-        # Each column vector is a TMS coil position
-        X = self.solver.solve(B)
-        return X
+            # Each column vector is a TMS coil position
+            bs = []
+            dofs = []
+            for b, d in res:
+                bs.append(b)
+                dofs.append(d)
+
+            B = np.stack(bs, axis=1)
+            X = self.solver.solve(B).squeeze()
+
+            scores = []
+            for i in range(X.shape[1]):
+                scores.append(
+                        pool.apply_async(
+                            self._compute_score,
+                            (X[:, i], dofs[i],)
+                        )
+                )
+            [s.get() for s in scores]
+        return scores
+
+    def _compute_score(self, v, dof):
+        if self.FEMSystem.dirichlet is not None:
+            v, dof_map = self.FEMSystem.dirichlet.apply_to_solution(v, dof)
+        V = mesh_io.NodeData(v.squeeze(), name="v", mesh=self.cached_mesh)
+        V.mesh = self.cached_mesh
+        out = calc_fields(V, self.FIELDS, cond=self.cond)
+        return self._calculate_score(out)
 
     def _get_tet_ids(self, entity):
         '''
@@ -353,7 +379,7 @@ class FieldFunc():
         '''
 
         tet_ids = self._get_tet_ids(self.FIELD_ENTITY)
-        normE = sim_msh.elmdata[1].value[tet_ids]
+        normE = sim_msh.elmdata[0].value[tet_ids]
 
         neg_ind = np.where(normE < 0)
         normE[neg_ind] = 0
@@ -418,4 +444,3 @@ class FieldFunc():
 
         # Compute distance
         return np.linalg.norm(p0 - pos)
-
