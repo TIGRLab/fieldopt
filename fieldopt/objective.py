@@ -337,7 +337,6 @@ class FieldFunc():
 
         # Each column vector is a TMS coil position
         X = self.solver.solve(self._factorized_A, B)
-        logger.info('Successfully completed simulations!')
         return X
 
     def _get_tet_ids(self, entity):
