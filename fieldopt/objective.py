@@ -2,19 +2,23 @@
 # coding: utf-8
 
 import logging
+import time
+import multiprocessing as mp
+import copy
 
 import numpy as np
 from numpy.linalg import norm as vecnorm
+import mkl
+from pypardiso import PyPardisoSolver
+import scipy.sparse as sparse
 
 from simnibs import cond
 from simnibs.msh import mesh_io
-from simnibs.simulation.fem import (FEMSystem, _set_up_global_solver,
-                                    calc_fields)
+from simnibs.simulation.fem import FEMSystem
 import simnibs.simulation.coil_numpy as coil_lib
 
 from fieldopt import geometry
 
-from multiprocessing import Pool
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +50,8 @@ class FieldFunc():
                  local_span=8,
                  distance=1,
                  didt=1e6,
-                 cpus=1,
-                 solver_options=None):
+                 nworkers=1,
+                 nthreads=None):
         '''
         Standard constructor
         Arguments:
@@ -64,20 +68,19 @@ class FieldFunc():
                                         for normal and curvature estimation
             distance                    Distance from coil to head surface
             didt                        Intensity of stimulation
-            cpus                        Number of cpus to use for simulation
-            solver_options              Options to pass into SimNIBS to
-                                        configure solver
+            nworkers                    Number of workers to spawn
+                                        in order to set up simulations
+                                        (compute B)
+            nthreads                    Maximum number of physical cores
+                                        for solver to use [Default: use all]
         '''
 
         self.mesh = mesh_file
         self.tw = tet_weights
         self.coil = coil
         self.didt = didt
-        logger.info(f"Configured to use {cpus} cpus...")
-        self.cpus = cpus
         self.geo_radius = local_span
         self.distance = distance
-        self.solver_opt = solver_options
         self.centroid = initial_centroid
         self.span = span
 
@@ -88,7 +91,34 @@ class FieldFunc():
             self.normflip = -1
 
         self.FEMSystem = None
+        self.solver = PyPardisoSolver()
         self.initialize()
+        self.num_workers = nworkers
+
+        if nthreads:
+            self.set_num_threads(nthreads)
+
+    def __getstate__(self):
+        state = {}
+        state["didt"] = self.didt
+        state["cached_mesh"] = self.cached_mesh
+        state["coil"] = self.coil
+        state["FEMSystem"] = self.FEMSystem
+        return state
+
+    def set_num_threads(self, mkl_threads):
+
+        if mkl_threads > mp.cpu_count() // 2:
+            logger.warning("Maximum number of cores requested "
+            " exceeds number of physical cores!")
+            logger.warning(f"Physical Cores: {mp.cpu_count()}")
+            logger.warning(f"Maximum usable cores: {mkl_threads}")
+            logger.warning("Using all cores")
+        else:
+            logger.info("Setting maximum number of usable physical cores"
+                        f"to {mkl_threads}")
+            mkl.set_dynamic(0)
+            mkl.set_num_threads(mkl_threads)
 
     def initialize(self):
         '''
@@ -133,10 +163,23 @@ class FieldFunc():
 
         logger.info("Initializing FEM problem")
         self.FEMSystem = FEMSystem.tms(self.cached_mesh,
-                                       self.cond,
-                                       solver_options=self.solver_opt)
-        self._solver = self.FEMSystem._solver
+                                       self.cond)
         logger.info("Completed FEM initialization")
+
+        logger.info("Computing A matrix of AX=B")
+        A = sparse.csc_matrix(self.FEMSystem.A)
+        A.sort_indices()
+        dof_map = copy.deepcopy(self.FEMSystem.dof_map)
+        if self.FEMSystem.dirichlet is not None:
+            A, _ = self.FEMSystem.dirichlet.apply_to_matrix(
+                        A, dof_map)
+        logger.info("Factorizing A")
+        start = time.time()
+        self.solver.factorize(A)
+        end = time.time()
+        logger.info(f"Factorized A in {end - start:.2f} seconds")
+        self._factorized_A = A
+        logger.info("Completed initialization successfully!")
         return
 
     def __repr__(self):
@@ -248,30 +291,6 @@ class FieldFunc():
                                                     self.normflip * n)
         return o_matrix
 
-    def _simulate(self, matsimnib, didt, out_geo=None, out_sim=None):
-        '''
-        Re-implementation of SimNIBS _run_tms function to return
-        mesh object rather than to write to a file
-        '''
-
-        # SimNIBS core routine
-        dAdt = coil_lib.set_up_tms(self.cached_mesh,
-                                   self.coil,
-                                   matsimnib,
-                                   didt,
-                                   fn_geo=out_geo)
-        b = self.FEMSystem.assemble_tms_rhs(dAdt)
-        v = self.FEMSystem.solve(b)
-        v = mesh_io.NodeData(v, name='v', mesh=self.cached_mesh)
-        v.mesh = self.cached_mesh
-        res = calc_fields(v, self.FIELDS, cond=self.cond, dadt=dAdt)
-
-        if out_sim:
-            mesh_io.write_msh(res, out_sim)
-
-        # Extract scores
-        return self._calculate_score(res)
-
     def _prepare_tms_matrix(self, m):
         '''
         Construct right hand side of the TMS linear
@@ -285,11 +304,12 @@ class FieldFunc():
 
         # Assemble b
         b = self.FEMSystem.assemble_tms_rhs(dadt)
-        return self.FEMSystem.dirchlet.apply_to_rhs(
+        b, _ = self.FEMSystem.dirichlet.apply_to_rhs(
                 self.FEMSystem.A,
                 b,
                 dof_map
         )
+        return b
 
     def _run_simulation(self, matsimnibs, out):
 
@@ -306,21 +326,19 @@ class FieldFunc():
             out_sims = [None] * len(matsimnibs)
 
         # Only this part needs to be multiproc'd
-        logger.info('Constructing right-hand side of FEM...')
+        logger.info('Constructing right-hand side of FEM AX=B...')
         start = time.time()
-        with Pool(processes=self.cpus) as pool:
-            B = pool.apply(self._prepare_tms_matrix, matsimnibs)
+        with mp.Pool(processes=self.num_workers) as pool:
+            B = np.stack(
+                    pool.map(self._prepare_tms_matrix, matsimnibs),
+                    axis=1)
         end = time.time()
         logger.info(f"Took {end-start:.2f}")
 
         # Each column vector is a TMS coil position
-        V = self._solver.solve(B)
-        
-        # Need a more efficient routine to compute scores
-
-
+        X = self.solver.solve(self._factorized_A, B)
         logger.info('Successfully completed simulations!')
-        return res
+        return X
 
     def _get_tet_ids(self, entity):
         '''
