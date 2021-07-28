@@ -6,7 +6,6 @@ import multiprocessing as mp
 import copy
 
 import numpy as np
-from numpy.linalg import norm as vecnorm
 import mkl
 import scipy.sparse as sparse
 
@@ -14,10 +13,7 @@ from simnibs import cond
 from simnibs.msh import mesh_io
 from simnibs.simulation.fem import FEMSystem, calc_fields
 import simnibs.simulation.coil_numpy as coil_lib
-
-from fieldopt import geometry
 from fieldopt.solver_wrapper import get_solver
-
 
 logger = logging.getLogger(__name__)
 
@@ -41,13 +37,10 @@ class FieldFunc():
     FIELDS = ['e']
 
     def __init__(self,
-                 mesh_file,
-                 initial_centroid,
+                 head_model,
+                 sampling_domain,
                  tet_weights,
                  coil,
-                 span=35,
-                 local_span=8,
-                 distance=1,
                  didt=1e6,
                  nworkers=1,
                  nthreads=None,
@@ -55,18 +48,12 @@ class FieldFunc():
         '''
         Standard constructor
         Arguments:
-            mesh_file                   Path to FEM model
-            initial_centroid            Initial point to grow sampling region
+            mesh                        simnibs.Msh.mesh_io.Msh object
+            sampling_domain             fieldopt.geometry.sampler Domain class
             tet_weights                 Weighting scores for each tetrahedron
                                         (1D array ordered by node ID)
             coil                        TMS coil file (either dA/dt volume or
                                         coil geometry)
-            span                        Radius of points to include in
-                                        sampling surface
-            local_span                  Radius of points to include in
-                                        construction of local geometry
-                                        for normal and curvature estimation
-            distance                    Distance from coil to head surface
             didt                        Intensity of stimulation
             nworkers                    Number of workers to spawn
                                         in order to set up simulations
@@ -77,20 +64,14 @@ class FieldFunc():
                                         [Default: pardiso]
         '''
 
-        self.mesh = mesh_file
+        self.model = head_model
+        self.domain = sampling_domain
         self.tw = tet_weights
         self.coil = coil
         self.didt = didt
-        self.geo_radius = local_span
-        self.distance = distance
-        self.centroid = initial_centroid
-        self.span = span
 
         # Control for coil file-type and SimNIBS changing convention
-        if self.coil.endswith('.ccd'):
-            self.normflip = 1
-        else:
-            self.normflip = -1
+        self.normflip = self.coil.endswith('.nii.gz')
 
         self.FEMSystem = None
         self.initialize(solver)
@@ -99,21 +80,34 @@ class FieldFunc():
         if nthreads:
             self.set_num_threads(nthreads)
 
+    def __repr__(self):
+        '''
+        print(FieldFunc)
+        '''
+
+        print('Mesh:', self.model.mesh)
+        print('Coil:', self.coil)
+        return ''
+
     def __getstate__(self):
         state = {}
         state["didt"] = self.didt
-        state["cached_mesh"] = self.cached_mesh
+        state["model"] = self.model
         state["coil"] = self.coil
         state["FEMSystem"] = self.FEMSystem
         state["cond"] = self.cond
         state["tw"] = self.tw
         return state
 
+    @property
+    def mesh(self):
+        return self.model.mesh
+
     def set_num_threads(self, mkl_threads):
 
         if mkl_threads > mp.cpu_count() // 2:
             logger.warning("Maximum number of cores requested "
-            " exceeds number of physical cores!")
+                           " exceeds number of physical cores!")
             logger.warning(f"Physical Cores: {mp.cpu_count()}")
             logger.warning(f"Maximum usable cores: {mkl_threads}")
             logger.warning("Using all cores")
@@ -129,44 +123,19 @@ class FieldFunc():
         function evaluations.
 
         Caches:
-            - Mesh
-            - Nodes, Coordinates
-            - Sampling surface at given centroid
             - Conductivity list
             - FEMSystem
 
         Opens multiprocessing pool to have jobs submitted
         '''
 
-        logger.info('Loading in coordinate data from mesh file...')
-        self.nodes, self.coords, _ = geometry.load_gmsh_nodes(
-            self.mesh, (2, 5))
-        _, _, trigs = geometry.load_gmsh_elems(self.mesh, (2, 5))
-        self.trigs = np.array(trigs).reshape(-1, 3)
-        logger.info('Successfully pulled in node and element data!')
-
-        # Construct basis of sampling space using centroid
-        logger.info('Constructing initial sampling surface...')
-        C, iR, bounds = self._initialize_quadratic_surface(
-            self.centroid, self.span)
-        self.C = C
-        self.iR = iR
-        self.bounds = bounds
-        logger.info('Successfully constructed initial sampling surface')
-
-        logger.info('Caching mesh file...')
-        self.cached_mesh = mesh_io.read_msh(self.mesh)
-        self.cached_mesh.fix_surface_labels()
-        logger.info('Successfully cached mesh file')
-
         logger.info('Storing standard conductivity values...')
         condlist = [c.value for c in cond.standard_cond()]
-        self.cond = cond.cond2elmdata(self.cached_mesh, condlist)
+        self.cond = cond.cond2elmdata(self.model.mesh, condlist)
         logger.info('Successfully stored conductivity values...')
 
         logger.info("Initializing FEM problem")
-        self.FEMSystem = FEMSystem.tms(self.cached_mesh,
-                                       self.cond)
+        self.FEMSystem = FEMSystem.tms(self.model.mesh, self.cond)
         logger.info("Completed FEM initialization")
 
         logger.info("Computing A matrix of AX=B")
@@ -174,121 +143,11 @@ class FieldFunc():
         A.sort_indices()
         dof_map = copy.deepcopy(self.FEMSystem.dof_map)
         if self.FEMSystem.dirichlet is not None:
-            A, _ = self.FEMSystem.dirichlet.apply_to_matrix(
-                        A, dof_map)
+            A, _ = self.FEMSystem.dirichlet.apply_to_matrix(A, dof_map)
         logger.info("Preparing solver...")
         self.solver = get_solver(solver, A)
         logger.info("Completed initialization successfully!")
         return
-
-    def __repr__(self):
-        '''
-        print(FieldFunc)
-        '''
-
-        print('Mesh:', self.mesh)
-        print('Coil:', self.coil)
-        return ''
-
-    def get_bounds(self):
-        return self.bounds
-
-    def _initialize_quadratic_surface(self, centroid, span):
-        '''
-        Construct quadratic basis and rotation at centroid point
-        to use for sampling
-        '''
-
-        v = geometry.closest_point2surf(centroid, self.coords)
-        C, R, iR = self._construct_local_quadric(v, 0.75 * span)
-
-        # Calculate neighbours, rotate to flatten on XY plane
-        neighbours_ind = np.where(vecnorm(self.coords - v, axis=1) < span)
-        neighbours = self.coords[neighbours_ind]
-        r_neighbours = geometry.affine(R, neighbours)
-        minarr = np.min(r_neighbours, axis=0)
-        maxarr = np.max(r_neighbours, axis=0)
-
-        bounds = np.c_[minarr.T, maxarr.T]
-
-        return C, iR, bounds
-
-    def _construct_local_quadric(self, p, tol=1e-3):
-        '''
-        Given a single point construct a local quadric
-        surface on a given mesh
-        '''
-
-        # Get local neighbourhood
-        neighbours_ind = np.where(vecnorm(self.coords - p, axis=1) < tol)
-
-        neighbours = self.coords[neighbours_ind]
-
-        # Calculate normals
-        normals = geometry.get_normals(self.nodes[neighbours_ind], self.nodes,
-                                       self.coords, self.trigs)
-
-        # Usage average of normals for alignment
-        n = normals / vecnorm(normals)
-
-        # Make transformation matrix
-        z = np.array([0, 0, 1])
-        R = np.eye(4)
-        R[:3, :3] = geometry.rotate_vec2vec(n, z)
-        T = np.eye(4)
-        T[:3, 3] = -p
-        affine = R @ T
-
-        # Create inverse rotation
-        iR = R
-        iR[:3, :3] = iR[:3, :3].T
-
-        # Create inverse translation
-        iT = T
-        iT[:3, 3] = -T[:3, 3]
-        i_affine = iT @ iR
-
-        # Perform quadratic fitting
-        r_neighbours = geometry.affine(affine, neighbours)
-        C = geometry.quad_fit(r_neighbours[:, :2], r_neighbours[:, 2])
-
-        return C, affine, i_affine
-
-    def _construct_sample(self, x, y):
-        '''
-        Given a sampling point, estimate local geometry to
-        get accurate normals/curvatures
-        '''
-
-        pp = geometry.map_param_2_surf(x, y, self.C)[np.newaxis, :]
-        p = geometry.affine(self.iR, pp)
-        v = geometry.closest_point2surf(p, self.coords)
-        C, _, iR = self._construct_local_quadric(v, self.geo_radius)
-        _, _, n = geometry.compute_principal_dir(0, 0, C)
-
-        # Map normal to coordinate space
-        n_r = iR[:3, :3] @ n
-        n_r = n_r / vecnorm(n_r)
-
-        # Push sample out by set distance
-        sample = v + (n_r * self.distance)
-
-        return sample, iR, C, n
-
-    def _transform_input(self, x, y, theta):
-        '''
-        Generates a coil orientation matrix given inputs from a
-        quadratic surface sampling domain
-        '''
-
-        sample, R, C, _ = self._construct_sample(x, y)
-        preaff_rot, preaff_norm = geometry.map_rot_2_surf(0, 0, theta, C)
-        rot = R[:3, :3] @ preaff_rot
-        n = R[:3, :3] @ preaff_norm
-
-        o_matrix = geometry.define_coil_orientation(sample, rot,
-                                                    self.normflip * n)
-        return o_matrix
 
     def _prepare_tms_matrix(self, m):
         '''
@@ -297,17 +156,13 @@ class FieldFunc():
         '''
 
         # Compute dA/dt for coil posiion on mesh
-        dadt = coil_lib.set_up_tms(self.cached_mesh, self.coil,
-                                   m, self.didt)
+        dadt = coil_lib.set_up_tms(self.mesh, self.coil, m, self.didt)
         dof_map = copy.deepcopy(self.FEMSystem.dof_map)
 
         # Assemble b
         b = self.FEMSystem.assemble_tms_rhs(dadt)
         b, dof_map = self.FEMSystem.dirichlet.apply_to_rhs(
-                self.FEMSystem.A,
-                b,
-                dof_map
-        )
+            self.FEMSystem.A, b, dof_map)
         return b, dof_map
 
     def _run_simulation(self, matsimnibs, out):
@@ -345,29 +200,20 @@ class FieldFunc():
             scores = []
             for i in range(X.shape[1]):
                 scores.append(
-                        pool.apply_async(
-                            self._compute_score,
-                            (X[:, i], dofs[i],)
-                        )
-                )
+                    pool.apply_async(self._compute_score, (
+                        X[:, i],
+                        dofs[i],
+                    )))
             [s.get() for s in scores]
         return scores
 
     def _compute_score(self, v, dof):
         if self.FEMSystem.dirichlet is not None:
             v, dof_map = self.FEMSystem.dirichlet.apply_to_solution(v, dof)
-        V = mesh_io.NodeData(v.squeeze(), name="v", mesh=self.cached_mesh)
-        V.mesh = self.cached_mesh
+        V = mesh_io.NodeData(v.squeeze(), name="v", mesh=self.mesh)
+        V.mesh = self.mesh
         out = calc_fields(V, self.FIELDS, cond=self.cond)
         return self._calculate_score(out)
-
-    def _get_tet_ids(self, entity):
-        '''
-        Pull list of element IDs for a given gmsh entity
-        '''
-
-        tet_ids = np.where(self.cached_mesh.elm.tag1 == entity[1])
-        return tet_ids
 
     def _calculate_score(self, sim_msh):
         '''
@@ -378,13 +224,13 @@ class FieldFunc():
         more complex geometry.
         '''
 
-        tet_ids = self._get_tet_ids(self.FIELD_ENTITY)
+        tet_ids = self.model.get_tet_ids(self.FIELD_ENTITY[1])
         normE = sim_msh.elmdata[0].value[tet_ids]
 
         neg_ind = np.where(normE < 0)
         normE[neg_ind] = 0
 
-        vols = self.cached_mesh.elements_volumes_and_areas()[tet_ids]
+        vols = self.mesh.elements_volumes_and_areas()[tet_ids]
 
         scores = self.tw * normE * vols
         return scores.sum()
@@ -402,7 +248,10 @@ class FieldFunc():
         '''
 
         logger.info('Transforming inputs...')
-        matsimnibs = [self._transform_input(x, y, t) for x, y, t in input_list]
+        matsimnibs = [
+            self.domain.place_coil(self.model, x, y, t, self.normflip)
+            for x, y, t in input_list
+        ]
 
         logger.info('Running simulations...')
         scores = self._run_simulation(matsimnibs, out_basename)
@@ -432,15 +281,9 @@ class FieldFunc():
         '''
 
         # Compute the coil affine matrix
-        coil_affine = self._transform_input(*input_coord)
+        coil_affine = self.domain.place_coil(self.model, *input_coord,
+                                             self.normflip)
         n = coil_affine[:3, 2]
         p0 = coil_affine[:3, 3]
         p1 = p0 + (n * 200)
-
-        # Calculate interception with pial surface
-        pial_mesh = self.cached_mesh.crop_msh(self.PIAL_ENTITY[1],
-                                              self.PIAL_ENTITY[0])
-        _, pos = pial_mesh.intercept_ray(p0, p1)
-
-        # Compute distance
-        return np.linalg.norm(p0 - pos)
+        return np.linalg.norm(self.model.intercept(p0, p1, self.PIAL_ENTITY))
