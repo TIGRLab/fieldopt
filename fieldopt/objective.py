@@ -113,6 +113,21 @@ class FieldFunc():
         scores = self.tw * normE * vols
         return scores.sum()
 
+    def place_coils(self, input_list):
+        '''
+        For an input list of triplets (x,y,theta), place coils
+        on the head model according to the defined Domain `self.domain`
+
+        Arguments:
+            input_list              List of (x,y,t) triplets
+        '''
+
+        logger.info("Transforming inputs...")
+        return [
+            self.domain.place_coil(self.model, *i, self.normflip)
+            for i in input_list
+        ]
+
     def evaluate(self, input_list, out_basename=None):
         '''
         Given a quadratic surface input (x,y) and rotational
@@ -125,17 +140,14 @@ class FieldFunc():
             scores                      An array of scores in order of inputs
         '''
 
-        logger.info('Transforming inputs...')
-        matsimnibs = [
-            self.domain.place_coil(self.model, x, y, t, self.normflip)
-            for x, y, t in input_list
-        ]
+        matsimnibs = self.place_coils(input_list)
 
         logger.info('Running simulations...')
-        scores = self.simulator.run_simulation(self.mesh, matsimnibs)
+        E = self.simulator.run_simulation(self.mesh, matsimnibs)
         logger.info('Successfully completed simulations!')
 
-        return scores
+        # TODO: Provide a way to select output format
+        return np.linalg.norm(E, axis=1).sum(axis=0)
 
     def get_coil2cortex_distance(self, input_coord):
         '''
@@ -205,6 +217,7 @@ class _Simulator:
             roi = np.where(np.ones_like(gm_vol_mask[0]))
         self.D = [d.tocsc()[gm_vol_mask][roi] for d in D]
         self.cond = conductivities.value[gm_vol_mask][roi]
+        self.roi = roi
 
         logger.info("Computing A matrix of AX=B")
         A = sparse.csc_matrix(self.FEMSystem.A)
@@ -221,6 +234,8 @@ class _Simulator:
         state["didt"] = self.didt
         state["coil"] = self.coil
         state["FEMSystem"] = self.FEMSystem
+        state["roi"] = self.roi
+        state["D"] = self.D
         return state
 
     def set_num_threads(self, mkl_threads):
@@ -248,25 +263,24 @@ class _Simulator:
 
         Returns:
             b                       RHS of simulation
-            dof_map                 DOF map for boundary conditions
+            dadt                    dA/dt for a given TMS coil position
         '''
 
-        # Compute dA/dt for coil posiion on mesh
         dadt = coil_lib.set_up_tms(mesh, self.coil, m, self.didt)
-        dof_map = copy.deepcopy(self.FEMSystem.dof_map)
-
-        # Assemble b
         b = self.FEMSystem.assemble_tms_rhs(dadt)
-        b, dof_map = self.FEMSystem.dirichlet.apply_to_rhs(
-            self.FEMSystem.A, b, dof_map)
-        return b, dof_map
+        return b, dadt[self.roi]
+
+    def calc_E(self, V, dAdt):
+
+        E = np.stack([-d.dot(V) for d in self.D], axis=1) * 1e3
+        E -= dAdt
+        return E
 
     def run_simulation(self, mesh, matsimnibs):
 
         if not isinstance(matsimnibs, list):
             matsimnibs = [matsimnibs]
 
-        # Only this part needs to be multiproc'd
         logger.info('Constructing right-hand side of FEM AX=B...')
         start = time.time()
 
@@ -276,14 +290,29 @@ class _Simulator:
             end = time.time()
             logger.info(f"Took {end-start:.2f}")
 
-            # Each column vector is a TMS coil position
-            bs = []
-            dofs = []
-            for b, d in res:
-                bs.append(b)
-                dofs.append(d)
+        # Each column vector is a TMS coil position
+        bs = []
+        dadts = []
+        for b, dadt in res:
+            bs.append(b)
+            dadts.append(dadt)
 
-            B = np.stack(bs, axis=1)
-            X = self.solver.solve(B).squeeze()
+        # [Node x problems]
+        B = np.vstack(bs).T
+        B, dof_map = self.FEMSystem.dirichlet.apply_to_rhs(
+            self.FEMSystem.A, B, self.FEMSystem.dof_map)
 
-        return X
+        logger.info("Solving FEM")
+        X = self.solver.solve(B)
+        logger.info("Solved")
+
+        X, dof_map = self.FEMSystem.dirichlet.apply_to_solution(X, dof_map)
+        dof_map, X = dof_map.order_like(self.FEMSystem.dof_map, array=X)
+
+        logger.info("Computing E")
+        # [Nodes x Directions x Problems]
+        DADT = np.stack(dadts, axis=2)
+        E = self.calc_E(X, DADT)
+        logger.info("Completed simulation!")
+
+        return E
