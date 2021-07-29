@@ -313,6 +313,6 @@ class _Simulator:
         # [Nodes x Directions x Problems]
         DADT = np.stack(dadts, axis=2)
         E = self.calc_E(X, DADT)
-        logger.info("Completed simulation!")
+        logger.info("Done")
 
         return E
