@@ -10,8 +10,7 @@ import mkl
 import scipy.sparse as sparse
 
 from simnibs import cond
-from simnibs.msh import mesh_io
-from simnibs.simulation.fem import FEMSystem, calc_fields, grad_matrix
+from simnibs.simulation.fem import FEMSystem, grad_matrix
 import simnibs.simulation.coil_numpy as coil_lib
 from fieldopt.solver_wrapper import get_solver
 
@@ -65,13 +64,17 @@ class FieldFunc():
 
         self.model = head_model
         self.domain = sampling_domain
-        self.tw = tet_weights
+        self.tw = tet_weights[np.where(tet_weights)]
 
         # Control for coil file-type and SimNIBS changing convention
         self.normflip = coil.endswith('.nii.gz')
 
-        self.simulator = _Simulator(self.mesh, solver, didt, coil,
-                                    np.where(tet_weights), nworkers, nthreads)
+        roi = head_model.get_tet_ids(2)[0][np.where(tet_weights)]
+
+        self.simulator = _Simulator(head_model, solver, didt, coil, roi,
+                                    nworkers, nthreads)
+
+        self.volumes = self.mesh.elements_volumes_and_areas().value[roi]
 
     def __repr__(self):
         '''
@@ -84,34 +87,6 @@ class FieldFunc():
     @property
     def mesh(self):
         return self.model.mesh
-
-    def _compute_score(self, v, dof):
-        if self.FEMSystem.dirichlet is not None:
-            v, dof_map = self.FEMSystem.dirichlet.apply_to_solution(v, dof)
-        V = mesh_io.NodeData(v.squeeze(), name="v", mesh=self.mesh)
-        V.mesh = self.mesh
-        out = calc_fields(V, FIELDS, cond=self.cond)
-        return self._calculate_score(out)
-
-    def _calculate_score(self, sim_msh):
-        '''
-        Given a simulation output file, compute the score
-
-        Volumes are integrated into the score function to deal with
-        score inflation due to a larger number of elements near
-        more complex geometry.
-        '''
-
-        tet_ids = self.model.get_tet_ids(FIELD_ENTITY[1])
-        normE = sim_msh.elmdata[0].value[tet_ids]
-
-        neg_ind = np.where(normE < 0)
-        normE[neg_ind] = 0
-
-        vols = self.mesh.elements_volumes_and_areas()[tet_ids]
-
-        scores = self.tw * normE * vols
-        return scores.sum()
 
     def place_coils(self, input_list):
         '''
@@ -145,9 +120,9 @@ class FieldFunc():
         logger.info('Running simulations...')
         E = self.simulator.run_simulation(self.mesh, matsimnibs)
         logger.info('Successfully completed simulations!')
-
-        # TODO: Provide a way to select output format
-        return np.linalg.norm(E, axis=1).sum(axis=0)
+        scores = (np.linalg.norm(E, axis=1) * self.tw[:, None] *
+                  self.volumes[:, None]).sum(axis=0)
+        return scores
 
     def get_coil2cortex_distance(self, input_coord):
         '''
@@ -184,7 +159,7 @@ class _Simulator:
     Class to manage simulation environment
     '''
     def __init__(self,
-                 mesh,
+                 model,
                  solver,
                  didt,
                  coil,
@@ -203,20 +178,19 @@ class _Simulator:
 
         logger.info('Storing standard conductivity values...')
         condlist = [c.value for c in cond.standard_cond()]
-        conductivities = cond.cond2elmdata(mesh, condlist)
+        conductivities = cond.cond2elmdata(model.mesh, condlist)
         logger.info('Successfully stored conductivity values...')
 
         logger.info("Initializing FEM problem")
-        self.FEMSystem = FEMSystem.tms(mesh, conductivities)
+        self.FEMSystem = FEMSystem.tms(model.mesh, conductivities)
         logger.info("Completed FEM initialization")
 
         logger.info('Constructing ROI')
-        D = grad_matrix(mesh, split=True)
-        gm_vol_mask = np.where((mesh.elm.tag1 == 2) * (mesh.elm.elm_type == 4))
-        if not roi:
-            roi = np.where(np.ones_like(gm_vol_mask[0]))
-        self.D = [d.tocsc()[gm_vol_mask][roi] for d in D]
-        self.cond = conductivities.value[gm_vol_mask][roi]
+        D = grad_matrix(model.mesh, split=True)
+        if roi is None:
+            roi = model.get_tet_ids(FIELD_ENTITY[1])
+        self.D = [d.tocsc()[roi] for d in D]
+        self.cond = conductivities.value[roi]
         self.roi = roi
 
         logger.info("Computing A matrix of AX=B")
@@ -268,7 +242,7 @@ class _Simulator:
 
         dadt = coil_lib.set_up_tms(mesh, self.coil, m, self.didt)
         b = self.FEMSystem.assemble_tms_rhs(dadt)
-        return b, dadt[self.roi]
+        return b, dadt
 
     def calc_E(self, V, dAdt):
 
@@ -295,7 +269,7 @@ class _Simulator:
         dadts = []
         for b, dadt in res:
             bs.append(b)
-            dadts.append(dadt)
+            dadts.append(dadt.value[self.roi])
 
         # [Node x problems]
         B = np.vstack(bs).T
