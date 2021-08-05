@@ -32,6 +32,7 @@ class Pardiso:
     def solve(self, B):
         return self.solver.solve(self._A, B)
 
+
 class PETSc:
     def __init__(self, A, solver_opt=DEFAULT_SOLVER_OPTIONS):
         logger.info("Using PetSC solver")
@@ -39,15 +40,19 @@ class PETSc:
         self.solver_opt = solver_opt
         logger.info("Initialized PetSC!")
 
-
     def solve(self, B):
         petsc_solver.petsc_solve(self.solver_opt, self.A, B)
+
 
 def get_solver(solver, A):
     solvers = {
             "pardiso": Pardiso,
             "petsc": PETSc
     }
+
+    if solver != 'petsc':
+        logger.info("Finalizing PETSc as its not being used")
+        petsc_solver.petsc_finalize()
 
     try:
         return solvers[solver](A)
