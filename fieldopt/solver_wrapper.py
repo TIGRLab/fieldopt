@@ -23,6 +23,7 @@ class Pardiso:
         end = time.time()
         logger.info(f"Factorized A in {end - start:.2f} seconds")
         self._A = A
+        atexit.register(self.solver.free_memory)
 
     def solve(self, B):
         return self.solver.solve(self._A, B)
