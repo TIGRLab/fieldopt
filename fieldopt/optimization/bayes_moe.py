@@ -376,7 +376,7 @@ def get_default_tms_optimizer(f, num_samples, minimum_samples=10):
             - Log-normal covariance amplitude Ln(Normal(12.5, 1.6))
     '''
     # Set standard TMS bounds
-    bounds = f.bounds
+    bounds = f.domain.bounds
     bounds[2, :] = np.array([0, 180])
 
     return BayesianMOEOptimizer(objective_func=f.evaluate,
