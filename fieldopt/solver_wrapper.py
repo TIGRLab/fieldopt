@@ -44,6 +44,12 @@ class PETSc:
 def get_solver(solver, A):
     solvers = {"pardiso": Pardiso, "petsc": PETSc}
 
+    if solvers != "petsc":
+        # Initializing simnibs.fem forces petsc initialization which
+        # causes annoying false error messages.
+        # Here if we're not using petsc shut it down
+        petsc_solver.petsc_finalize()
+
     try:
         return solvers[solver](A)
     except KeyError:
