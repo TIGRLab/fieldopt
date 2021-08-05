@@ -10,7 +10,8 @@ import mkl
 import scipy.sparse as sparse
 
 from simnibs import cond
-from simnibs.simulation.fem import FEMSystem, grad_matrix
+from simnibs.simulation.fem import FEMSystem, grad_matrix, calc_fields
+from simnibs.msh import mesh_io
 import simnibs.simulation.coil_numpy as coil_lib
 from fieldopt.solver_wrapper import get_solver
 
@@ -124,6 +125,39 @@ class FieldFunc():
                   self.volumes[:, None]).sum(axis=0)
         return scores
 
+    def visualize_evaluate(self,
+                           x,
+                           y,
+                           theta,
+                           out_sim=None,
+                           out_geo=None,
+                           fields=FIELDS):
+        '''
+        Generate a simulation visualization for a given (x,y,theta) on the
+        configured `sampling_domain`.
+
+        Arguments:
+            x                       Sampling domain x
+            y                       Sampling domain y
+            theta                   Sampling domain rotation angle
+            out_sim                 Output path for msh file
+            out_geo                 Output path for coil position file
+            fields                  Fields to include in visualization
+        '''
+
+        matsimnibs = self.place_coils([[x, y, theta]])[0]
+        res = self.simulator.run_full_simulation(self.mesh,
+                                                 matsimnibs,
+                                                 fields=fields,
+                                                 fn_geo=out_geo)
+
+        logger.info("Appending weightfunction to output")
+        wf_field = np.zeros_like(res.elmdata[0].value)
+        wf_field[self.simulator.roi] = self.tw
+        res.add_element_field(wf_field, 'weightfunction')
+        mesh_io.write_msh(res, out_sim)
+        logger.info(f"Wrote msh into {out_sim}")
+
     def get_coil2cortex_distance(self, input_coord):
         '''
         Given an input sampling coordinate on the parameteric
@@ -167,9 +201,9 @@ class _Simulator:
                  num_workers=None,
                  nthreads=None):
 
-        self.cond = None
         self.FEMSystem = None
         self.solver = None
+        self.cond = None
         self.didt = didt
         self.coil = coil
         self.num_workers = num_workers if num_workers else 1
@@ -179,18 +213,18 @@ class _Simulator:
         logger.info('Storing standard conductivity values...')
         condlist = [c.value for c in cond.standard_cond()]
         conductivities = cond.cond2elmdata(model.mesh, condlist)
+        self.cond = conductivities
         logger.info('Successfully stored conductivity values...')
 
         logger.info("Initializing FEM problem")
         self.FEMSystem = FEMSystem.tms(model.mesh, conductivities)
         logger.info("Completed FEM initialization")
 
-        logger.info('Constructing ROI')
+        logger.info('Computing mesh gradient')
         D = grad_matrix(model.mesh, split=True)
         if roi is None:
             roi = model.get_tet_ids(FIELD_ENTITY[1])
         self.D = [d.tocsc()[roi] for d in D]
-        self.cond = conductivities.value[roi]
         self.roi = roi
 
         logger.info("Computing A matrix of AX=B")
@@ -226,7 +260,7 @@ class _Simulator:
             mkl.set_dynamic(0)
             mkl.set_num_threads(mkl_threads)
 
-    def prepare_tms_matrix(self, mesh, m):
+    def prepare_tms_matrix(self, mesh, m, fn_geo=None):
         '''
         Construct right hand side of the TMS linear
         problem
@@ -240,7 +274,11 @@ class _Simulator:
             dadt                    dA/dt for a given TMS coil position
         '''
 
-        dadt = coil_lib.set_up_tms(mesh, self.coil, m, self.didt)
+        dadt = coil_lib.set_up_tms(mesh,
+                                   self.coil,
+                                   m,
+                                   self.didt,
+                                   fn_geo=fn_geo)
         b = self.FEMSystem.assemble_tms_rhs(dadt)
         return b, dadt
 
@@ -249,6 +287,25 @@ class _Simulator:
         E = np.stack([-d.dot(V) for d in self.D], axis=1) * 1e3
         E -= dAdt
         return E
+
+    def solve(self, B):
+        '''
+        Solve FEM
+
+        B           Right hand-side of TMS FEM equation
+        '''
+
+        B, dof_map = self.FEMSystem.dirichlet.apply_to_rhs(
+            self.FEMSystem.A, B, self.FEMSystem.dof_map)
+
+        logger.info("Solving FEM")
+        X = self.solver.solve(B)
+        logger.info("Solved")
+
+        X, dof_map = self.FEMSystem.dirichlet.apply_to_solution(X, dof_map)
+        _, X = dof_map.order_like(self.FEMSystem.dof_map, array=X)
+
+        return X
 
     def run_simulation(self, mesh, matsimnibs):
 
@@ -273,15 +330,7 @@ class _Simulator:
 
         # [Node x problems]
         B = np.vstack(bs).T
-        B, dof_map = self.FEMSystem.dirichlet.apply_to_rhs(
-            self.FEMSystem.A, B, self.FEMSystem.dof_map)
-
-        logger.info("Solving FEM")
-        X = self.solver.solve(B)
-        logger.info("Solved")
-
-        X, dof_map = self.FEMSystem.dirichlet.apply_to_solution(X, dof_map)
-        dof_map, X = dof_map.order_like(self.FEMSystem.dof_map, array=X)
+        X = self.solve(B)
 
         logger.info("Computing E")
         # [Nodes x Directions x Problems]
@@ -290,3 +339,23 @@ class _Simulator:
         logger.info("Done")
 
         return E
+
+    def run_full_simulation(self,
+                            mesh,
+                            matsimnibs,
+                            fields=FIELDS,
+                            fn_geo=None):
+
+        logger.info('Constructing right-hand side of FEM AX=B...')
+        b, dadt = self.prepare_tms_matrix(mesh, matsimnibs, fn_geo=fn_geo)
+        x = self.solve(b)
+
+        # Calc fields
+        logger.info("Computing output post-processing")
+        x = mesh_io.NodeData(x.squeeze(), name='v', mesh=mesh)
+        x.mesh = mesh
+        res = calc_fields(x, fields, cond=self.cond, dadt=dadt)
+        logger.info("Done")
+
+        # Return resulting mesh object
+        return res
