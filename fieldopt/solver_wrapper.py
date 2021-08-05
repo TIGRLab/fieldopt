@@ -1,5 +1,4 @@
 # coding: utf-8
-
 '''
 Lightweight wrapper to provide equivalent interface between solvers
 used for FEM
@@ -13,10 +12,6 @@ from simnibs.cython_code import petsc_solver
 from simnibs.simulation.fem import DEFAULT_SOLVER_OPTIONS
 
 logger = logging.getLogger(__name__)
-
-# Match SimNIBS module-level setup
-petsc_solver.petsc_initialize()
-atexit.register(petsc_solver.petsc_finalize)
 
 
 class Pardiso:
@@ -39,20 +34,15 @@ class PETSc:
         self.A = A
         self.solver_opt = solver_opt
         logger.info("Initialized PetSC!")
+        petsc_solver.petsc_initialize()
+        atexit.register(petsc_solver.petsc_finalize)
 
     def solve(self, B):
         petsc_solver.petsc_solve(self.solver_opt, self.A, B)
 
 
 def get_solver(solver, A):
-    solvers = {
-            "pardiso": Pardiso,
-            "petsc": PETSc
-    }
-
-    if solver != 'petsc':
-        logger.info("Finalizing PETSc as its not being used")
-        petsc_solver.petsc_finalize()
+    solvers = {"pardiso": Pardiso, "petsc": PETSc}
 
     try:
         return solvers[solver](A)
