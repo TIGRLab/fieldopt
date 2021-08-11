@@ -1,5 +1,6 @@
 from collections import deque
 import wrapt
+import time
 
 import numpy as np
 
@@ -21,6 +22,8 @@ from moe.optimal_learning.python.base_prior import BasePrior
 from moe.optimal_learning.python.cpp_wrappers.optimization import (
     GradientDescentOptimizer as cGDOpt, GradientDescentParameters as cGDParams)
 from moe.optimal_learning.python.base_prior import TophatPrior, NormalPrior
+
+from .base import IterableOptimizer
 
 import logging
 
@@ -56,7 +59,7 @@ def _check_initialized(wrapped, instance, args, kwargs):
         return wrapped(*args, **kwargs)
 
 
-class BayesianMOEOptimizer():
+class BayesianMOEOptimizer(IterableOptimizer):
     def __init__(self,
                  objective_func,
                  samples_per_iteration,
@@ -97,8 +100,8 @@ class BayesianMOEOptimizer():
 
         '''
 
-        self.obj_func = objective_func
-        self.maximize = maximize
+        super(BayesianMOEOptimizer, self).__init__(objective_func, maximize)
+
         self.epsilon = epsilon
 
         self.dims = bounds.shape[0]
@@ -125,14 +128,13 @@ class BayesianMOEOptimizer():
         self.gp_loglikelihood = None
 
         self.num_samples = samples_per_iteration
-        self.iteration = 0
 
-    def _increment(self):
-        self.iteration += 1
+    def get_history(self):
+        history = []
+        for c, v in self.best_point_history:
+            history.append(np.array([*c, *v]))
 
-    @property
-    def sign(self):
-        return -1 if self.maximize else 1
+        return np.array(history)
 
     def __str__(self):
         return f'''
@@ -285,21 +287,6 @@ class BayesianMOEOptimizer():
                                            self.sgd, self.num_samples)
         return samples, ei
 
-    def evaluate_objective(self, sampling_points):
-        '''
-        Evaluates the objective function at `sampling_points`
-
-        The objective function is expected to return an iterable
-        of the results with ordering matching the input sampling
-        points
-        '''
-
-        res = self.obj_func(sampling_points)
-        if not isinstance(res, np.ndarray):
-            res = np.array(res)
-
-        return self.sign * res
-
     def step(self):
         '''
         Performs one iteration of Bayesian optimization:
@@ -331,12 +318,14 @@ class BayesianMOEOptimizer():
 
         return sampling_points, res, qEI
 
-    def iter(self):
+    def iter(self, print_status=False):
         '''
         Returns an generator to perform
         end-to-end optimization
         '''
         while not self.converged:
+
+            start = time.time()
             sampling_points, res, qEI = self.step()
             best_point, best_val = self.current_best
 
@@ -345,7 +334,7 @@ class BayesianMOEOptimizer():
             else:
                 criterion = None
 
-            yield {
+            out = {
                 "best_point": best_point,
                 "best_value": best_val,
                 "iteration": self.iteration,
@@ -355,8 +344,18 @@ class BayesianMOEOptimizer():
                 "criterion": criterion,
                 "converged": self.converged
             }
-        logging.debug(f"Current best is: {self.current_best}")
-        return
+
+            if print_status:
+                logging.info(f"Duration: {time.time() - start}")
+                logging.info(f"Iteration: {self.iteration}")
+                logging.info(f"Best Value: {self.sign * best_val}")
+                logging.info(f"Criterion: {criterion}")
+                logging.info(f"qEI: {qEI}")
+                logging.info(
+                    f"Converged" if self.converged else "Not Converged")
+                logging.info("-----------------------------------------------")
+
+            yield out
 
 
 def get_default_tms_optimizer(f, num_samples, minimum_samples=10):
