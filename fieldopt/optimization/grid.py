@@ -2,12 +2,14 @@ import numpy as np
 from sklearn.utils.extmath import cartesian
 import time
 
+from .base import IterableOptimizer
+
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class GridOptimizer():
+class GridOptimizer(IterableOptimizer):
     '''
     General GridOptimizer for an objective function
     '''
@@ -26,6 +28,7 @@ class GridOptimizer():
             bounds              [P x 2] Array where each row corresponds
                                 to the (min, max) for a dimension p
         '''
+        super(GridOptimizer, self).__init__(objective_func, maximize)
 
         # Construct Grid
         dim_samples = [
@@ -39,12 +42,7 @@ class GridOptimizer():
         self.batches = np.split(self.grid, divisions)
         self.batchsize = batchsize
         logging.info(f"Will perform {len(self.batches)} iterations")
-
-        self.obj_func = objective_func
-        self.iteration = 0
-
         self.history = np.zeros((self.grid.shape[0], ), dtype=float)
-        self.maximize = maximize
 
     def __str__(self):
         return f'''
@@ -58,15 +56,8 @@ class GridOptimizer():
         '''
 
     @property
-    def sign(self):
-        return -1 if self.maximize else 1
-
-    @property
     def completed(self):
         return self.iteration >= len(self.batches)
-
-    def _increment(self):
-        self.iteration += 1
 
     @property
     def current_best(self):
@@ -95,13 +86,6 @@ class GridOptimizer():
         best_values = self.history[:evaluated_points.shape[0]]
         return np.c_[evaluated_points, best_values]
 
-    def evaluate_objective(self, sampling_points):
-        res = self.obj_func(sampling_points)
-        if not isinstance(res, np.ndarray):
-            res = np.array(res)
-
-        return self.sign * res
-
     def step(self):
         '''
         Perform one iteration of grid optimization using
@@ -125,13 +109,6 @@ class GridOptimizer():
 
         self._increment()
         return sampling_points, res
-
-    def optimize(self, print_status=False):
-        '''
-        Perform full optimization on objective function
-        '''
-        history = [res for res in self.iter(print_status)]
-        return history
 
     def iter(self, print_status=False):
         '''

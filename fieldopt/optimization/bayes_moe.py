@@ -23,6 +23,8 @@ from moe.optimal_learning.python.cpp_wrappers.optimization import (
     GradientDescentOptimizer as cGDOpt, GradientDescentParameters as cGDParams)
 from moe.optimal_learning.python.base_prior import TophatPrior, NormalPrior
 
+from .base import IterableOptimizer
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -57,7 +59,7 @@ def _check_initialized(wrapped, instance, args, kwargs):
         return wrapped(*args, **kwargs)
 
 
-class BayesianMOEOptimizer():
+class BayesianMOEOptimizer(IterableOptimizer):
     def __init__(self,
                  objective_func,
                  samples_per_iteration,
@@ -98,8 +100,8 @@ class BayesianMOEOptimizer():
 
         '''
 
-        self.obj_func = objective_func
-        self.maximize = maximize
+        super(BayesianMOEOptimizer, self).__init__(objective_func, maximize)
+
         self.epsilon = epsilon
 
         self.dims = bounds.shape[0]
@@ -126,14 +128,6 @@ class BayesianMOEOptimizer():
         self.gp_loglikelihood = None
 
         self.num_samples = samples_per_iteration
-        self.iteration = 0
-
-    def _increment(self):
-        self.iteration += 1
-
-    @property
-    def sign(self):
-        return -1 if self.maximize else 1
 
     def get_history(self):
         history = []
@@ -293,21 +287,6 @@ class BayesianMOEOptimizer():
                                            self.sgd, self.num_samples)
         return samples, ei
 
-    def evaluate_objective(self, sampling_points):
-        '''
-        Evaluates the objective function at `sampling_points`
-
-        The objective function is expected to return an iterable
-        of the results with ordering matching the input sampling
-        points
-        '''
-
-        res = self.obj_func(sampling_points)
-        if not isinstance(res, np.ndarray):
-            res = np.array(res)
-
-        return self.sign * res
-
     def step(self):
         '''
         Performs one iteration of Bayesian optimization:
@@ -338,13 +317,6 @@ class BayesianMOEOptimizer():
         self._increment()
 
         return sampling_points, res, qEI
-
-    def optimize(self, print_status=False):
-        '''
-        Perform full optimization on objective function
-        '''
-        history = [res for res in self.iter(print_status)]
-        return history
 
     def iter(self, print_status=False):
         '''
