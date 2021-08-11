@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.utils.extmath import cartesian
+import time
 
 import logging
 
@@ -60,12 +61,12 @@ class GridOptimizer():
     def sign(self):
         return -1 if self.maximize else 1
 
-    def _increment(self):
-        self.iteration += 1
-
     @property
     def completed(self):
         return self.iteration >= len(self.batches)
+
+    def _increment(self):
+        self.iteration += 1
 
     @property
     def current_best(self):
@@ -84,6 +85,15 @@ class GridOptimizer():
         best_coord = self.grid[ind]
         best_value = self.history[ind]
         return best_coord, best_value
+
+    def get_history(self):
+        '''
+        Get a [ (D + 1) x N ] array of previous results
+        '''
+
+        evaluated_points = np.vstack(self.batches[:self.iteration])
+        best_values = self.history[:evaluated_points.shape[0]]
+        return np.c_[evaluated_points, best_values]
 
     def evaluate_objective(self, sampling_points):
         res = self.obj_func(sampling_points)
@@ -116,22 +126,41 @@ class GridOptimizer():
         self._increment()
         return sampling_points, res
 
-    def iter(self):
+    def optimize(self, print_status=False):
+        '''
+        Perform full optimization on objective function
+        '''
+        history = [res for res in self.iter(print_status)]
+        return history
+
+    def iter(self, print_status=False):
         '''
         Returns an generator which can be run to
         perform end-to-end optimization
         '''
 
         while not self.completed:
+
+            start = time.time()
             sampling_points, res = self.step()
             best_point, best_val = self.current_best
-            yield {
+            out = {
                 "best_point": best_point,
                 "best_value": best_val,
                 "iteration": self.iteration,
                 "samples": sampling_points,
                 "result": res
             }
+
+            if print_status:
+                logging.info(f"Duration: {time.time() - start}")
+                logging.info(f"Iteration: {self.iteration}")
+                logging.info(f"Best Value: {self.sign * best_val}")
+                logging.info(
+                    f"Converged" if self.converted else "Not Converged")
+                logging.info("-----------------------------------------------")
+
+            yield out
 
 
 def get_default_tms_optimizer(f, locdim, rotdim):

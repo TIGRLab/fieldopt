@@ -1,5 +1,6 @@
 from collections import deque
 import wrapt
+import time
 
 import numpy as np
 
@@ -133,6 +134,13 @@ class BayesianMOEOptimizer():
     @property
     def sign(self):
         return -1 if self.maximize else 1
+
+    def get_history(self):
+        history = []
+        for c, v in self.best_point_history:
+            history.append(np.array([*c, *v]))
+
+        return np.array(history)
 
     def __str__(self):
         return f'''
@@ -331,12 +339,21 @@ class BayesianMOEOptimizer():
 
         return sampling_points, res, qEI
 
-    def iter(self):
+    def optimize(self, print_status=False):
+        '''
+        Perform full optimization on objective function
+        '''
+        history = [res for res in self.iter(print_status)]
+        return history
+
+    def iter(self, print_status=False):
         '''
         Returns an generator to perform
         end-to-end optimization
         '''
         while not self.converged:
+
+            start = time.time()
             sampling_points, res, qEI = self.step()
             best_point, best_val = self.current_best
 
@@ -345,7 +362,7 @@ class BayesianMOEOptimizer():
             else:
                 criterion = None
 
-            yield {
+            out = {
                 "best_point": best_point,
                 "best_value": best_val,
                 "iteration": self.iteration,
@@ -355,8 +372,18 @@ class BayesianMOEOptimizer():
                 "criterion": criterion,
                 "converged": self.converged
             }
-        logging.debug(f"Current best is: {self.current_best}")
-        return
+
+            if print_status:
+                logging.info(f"Duration: {time.time() - start}")
+                logging.info(f"Iteration: {self.iteration}")
+                logging.info(f"Best Value: {self.sign * best_val}")
+                logging.info(f"Criterion: {criterion}")
+                logging.info(f"qEI: {qEI}")
+                logging.info(
+                    f"Converged" if self.converged else "Not Converged")
+                logging.info("-----------------------------------------------")
+
+            yield out
 
 
 def get_default_tms_optimizer(f, num_samples, minimum_samples=10):
