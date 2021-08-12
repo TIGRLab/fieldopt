@@ -68,6 +68,7 @@ class BayesianMOEOptimizer(IterableOptimizer):
                  prior=None,
                  sgd_params=DEFAULT_SGD_PARAMS,
                  maximize=False,
+                 max_iterations=None,
                  epsilon=1e-3):
         '''
         Initialize default parameters for running a Bayesian optimization
@@ -107,6 +108,7 @@ class BayesianMOEOptimizer(IterableOptimizer):
         self.dims = bounds.shape[0]
         self.best_point_history = []
         self.convergence_buffer = deque(maxlen=minimum_samples)
+        self.max_iter = max_iterations
 
         # non-C++ wrapper needed since it has added functionality
         # at cost of speed
@@ -201,6 +203,11 @@ class BayesianMOEOptimizer(IterableOptimizer):
 
         if self.gp_loglikelihood is None:
             return False
+
+        if (self.max_iter is not None) and (self.iteration == self.max_iter):
+            logging.info(f"Reached maximum number of iterations,"
+                         " N={self.max_iter}")
+            return True
 
         criterion = self._compute_convergence_criterion()
         logging.debug(f"Buffer standard deviation: {criterion}")
@@ -358,7 +365,10 @@ class BayesianMOEOptimizer(IterableOptimizer):
             yield out
 
 
-def get_default_tms_optimizer(f, num_samples, minimum_samples=10):
+def get_default_tms_optimizer(f,
+                              num_samples,
+                              minimum_samples=10,
+                              max_iterations=None):
     '''
     Construct BayesianMOEOptimizer using pre-configured
     prior hyperparameters
@@ -368,6 +378,8 @@ def get_default_tms_optimizer(f, num_samples, minimum_samples=10):
         num_samples         Number of samples to evaluate in parallel
         minimum_samples     Minimum number of samples to evaluate before
                             performing convergence checks
+        max_iterations      Maximum number of iterations before cutting
+                            off optimization
     Returns:
         Configured BayesianMOEOptimizer instance with the following priors:
         - Squared exponential covariance function:
@@ -383,7 +395,8 @@ def get_default_tms_optimizer(f, num_samples, minimum_samples=10):
                                 bounds=bounds,
                                 minimum_samples=minimum_samples,
                                 prior=DEFAULT_PRIOR,
-                                maximize=True)
+                                maximize=True,
+                                max_iterations=max_iterations)
 
 
 def _gen_sample_from_qei(gp,
