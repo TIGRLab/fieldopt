@@ -134,7 +134,7 @@ class BayesianMOEOptimizer(IterableOptimizer):
     def get_history(self):
         history = []
         for c, v in self.best_point_history:
-            history.append(np.array([*c, *v]))
+            history.append(np.array([*c, v]))
 
         return np.array(history)
 
