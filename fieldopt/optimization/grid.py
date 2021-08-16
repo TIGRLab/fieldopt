@@ -134,7 +134,7 @@ class GridOptimizer(IterableOptimizer):
                 logging.info(f"Iteration: {self.iteration}")
                 logging.info(f"Best Value: {self.sign * best_val}")
                 logging.info(
-                    f"Converged" if self.converted else "Not Converged")
+                    f"Complete" if self.completed else "Not Completed")
                 logging.info("-----------------------------------------------")
 
             yield out
@@ -158,7 +158,7 @@ def get_default_tms_optimizer(f, locdim, rotdim):
     '''
 
     sampling = (locdim, locdim, rotdim)
-    batchsize = f.cpus // 2 - 1
+    batchsize = f.simulator.num_workers
     bounds = f.domain.bounds
     bounds[2, :] = np.array([0, 180])
     return GridOptimizer(f.evaluate, batchsize, sampling, bounds)
