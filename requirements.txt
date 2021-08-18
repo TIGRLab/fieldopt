@@ -13,3 +13,4 @@ wrapt==1.12.1
 psutil==5.8.0
 mkl==2021.3.0
 mkl-service==2.4.0
+pypardiso==0.3.3
