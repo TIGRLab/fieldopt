@@ -1,6 +1,39 @@
 import numpy as np
 import numba
 import fieldopt.geometry.geometry as geometry
+import gmsh
+
+
+def load_gmsh_nodes(gmshpath, entity):
+    '''
+    Given a fullpath to some .msh file
+    load in the mesh nodes IDs, triangles and coordinates.
+    gmshpath -- path to gmsh file
+    dimtag   -- tuple specifying the (dimensionality,tagID) being loaded
+    If entity=(dim,tag) not provided then pull the first entity and return
+    '''
+
+    gmsh.initialize()
+    gmsh.open(gmshpath)
+    nodes, coords, params = gmsh.model.mesh.getNodes(entity[0], entity[1])
+    coords = np.array(coords).reshape((len(coords) // 3, 3))
+    gmsh.clear()
+
+    return nodes - 1, coords, params
+
+
+def load_gmsh_elems(gmshpath, entity):
+    '''
+    Wrapper function for loading gmsh elements
+    '''
+
+    gmsh.initialize()
+    gmsh.open(gmshpath)
+    nodes, elem_ids, node_maps = gmsh.model.mesh.getElements(
+        entity[0], entity[1])
+    gmsh.clear()
+
+    return nodes, elem_ids[0] - 1, node_maps[0] - 1
 
 
 def closest_point2surf(p, coords):
