@@ -50,6 +50,7 @@ def get_solver(solver, A):
         # causes annoying false error messages.
         # Here if we're not using petsc shut it down
         petsc_solver.petsc_finalize()
+        atexit.unregister(petsc_solver.petsc_finalize)
 
     try:
         return solvers[solver](A)

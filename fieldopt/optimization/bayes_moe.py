@@ -198,16 +198,16 @@ class BayesianMOEOptimizer(IterableOptimizer):
         If the minimum number of iterations have not been met, returns False
         '''
         # Minimum number of iterations have not been met
+        if (self.max_iter is not None) and (self.iteration == self.max_iter):
+            logging.info(f"Reached maximum number of iterations,"
+                         " N={self.max_iter}")
+            return True
+
         if not self.buffer_filled:
             return False
 
         if self.gp_loglikelihood is None:
             return False
-
-        if (self.max_iter is not None) and (self.iteration == self.max_iter):
-            logging.info(f"Reached maximum number of iterations,"
-                         " N={self.max_iter}")
-            return True
 
         criterion = self._compute_convergence_criterion()
         logging.debug(f"Buffer standard deviation: {criterion}")
