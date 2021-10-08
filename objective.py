@@ -332,7 +332,7 @@ class FieldFunc():
         neg_ind = np.where(normE < 0)
         normE[neg_ind] = 0
 
-        vols = self.cached_mesh.elements_volumes_and_areas()[tet_ids]
+        vols = self.cached_mesh.elements_volumes_and_areas().value[tet_ids]
 
         scores = self.tw * normE * vols
         return scores.sum()
