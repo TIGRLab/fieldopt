@@ -38,8 +38,8 @@ class FieldFunc():
     def __init__(self,
                  head_model,
                  sampling_domain,
-                 tet_weights,
                  coil,
+                 tet_weights=None,
                  didt=1e6,
                  nworkers=1,
                  nthreads=None,
@@ -65,7 +65,13 @@ class FieldFunc():
 
         self.model = head_model
         self.domain = sampling_domain
-        self.tw = tet_weights[np.where(tet_weights)]
+
+        if tet_weights:
+            self.tw = tet_weights[np.where(tet_weights)]
+        else:
+            logger.warning("No weights provided for score function"
+                           " setting to 0s!")
+            self.tw = np.zeros_like(head_model.get_tet_ids(2)[0])
 
         # Control for coil file-type and SimNIBS changing convention
         self.normflip = coil.endswith('.nii.gz')
@@ -126,9 +132,10 @@ class FieldFunc():
         return scores
 
     def visualize_evaluate(self,
-                           x,
-                           y,
-                           theta,
+                           x=None,
+                           y=None,
+                           theta=None,
+                           matsimnibs=None,
                            out_sim=None,
                            out_geo=None,
                            fields=FIELDS):
@@ -140,21 +147,35 @@ class FieldFunc():
             x                       Sampling domain x
             y                       Sampling domain y
             theta                   Sampling domain rotation angle
+            matsimnibs              Matsimnibs matrix to use directly
             out_sim                 Output path for msh file
             out_geo                 Output path for coil position file
             fields                  Fields to include in visualization
         '''
 
-        matsimnibs = self.place_coils([[x, y, theta]])[0]
+        if all([x, y, theta]):
+            logger.info("Using domain input coordinates")
+            matsimnibs = self.place_coils([[x, y, theta]])[0]
+        elif matsimnibs is not None:
+            logger.info("Using provided matsimnibs matrix")
+        else:
+            raise ValueError("Missing x,y,theta coordinates or matsimnibs!")
+
         res = self.simulator.run_full_simulation(self.mesh,
                                                  matsimnibs,
                                                  fields=fields,
                                                  fn_geo=out_geo)
 
-        logger.info("Appending weightfunction to output")
-        wf_field = np.zeros_like(res.elmdata[0].value)
-        wf_field[self.simulator.roi] = self.tw
-        res.add_element_field(wf_field, 'weightfunction')
+        if np.any(np.where(self.tw)[0]):
+            logger.info("Appending weightfunction to output")
+            wf_field = np.zeros_like(res.elmdata[0].value)
+            wf_field[self.simulator.roi] = self.tw
+            res.add_element_field(wf_field, 'weightfunction')
+            return
+        else:
+            logger.warning("Weightfunction was not set or is all"
+                           " zeros! Not displaying in final result")
+
         mesh_io.write_msh(res, out_sim)
         logger.info(f"Wrote msh into {out_sim}")
 
