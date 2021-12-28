@@ -44,7 +44,7 @@ RUN	pip install -f https://github.com/simnibs/simnibs/releases/tag/v3.1.2 simnib
 	&& python ./setup.py install \
 	&& pip install jupyter>=6.1.5 numba matplotlib \
 	docopt sklearn emcee==2.2.1 nilearn \
-	pythreejs \
+	pythreejs wrapt \
 	https://github.com/skoch9/meshplot/archive/0.4.0.tar.gz
 
 ARG	BRANCH="master"
@@ -52,6 +52,7 @@ ARG	PIP_FLAGS
 ADD	https://api.github.com/repos/jerdra/fieldopt/git/refs/heads/${BRANCH} version.json
 RUN	git clone -b ${BRANCH} https://github.com/jerdra/fieldopt.git \
 	&& cd fieldopt \
+	&& pip install -r requirements.txt \
 	&& pip install ${PIP_FLAGS} .[all] \
 	&& pip install --upgrade gmsh
 
