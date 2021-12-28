@@ -1,5 +1,9 @@
 # !/usr/bin/env python
 # coding: utf-8
+"""
+Fieldopt tetrahedral projection module for mapping
+volumetric data onto a tetrahedral volumetric mesh model
+"""
 
 import numba
 import numpy as np
@@ -8,22 +12,20 @@ import numpy as np
 @numba.njit
 def map_nodes(x, prop_array):
     '''
-    Convenience function to remap a value according to a properties array
+    Convenience function to remap a value according to a properties array.
+    A properties array is an (nx3) numpy array that stores
+    the following information for the :math:`i`th gmsh element
+
+    - [1] - minimum element node number
+    - [2] - maximum element node number
+    - [3] - number of element nodes
+
     Arguments:
-        x                           Array
-        prop_array                  A properties array in the desired order
+        x (ndarray): Node array to remap
+        prop_array (ndarray): (K, 3) properties array
 
-    Description of prop_array
-
-    prop_array is an (nx3) numpy array that stores the following information
-    for the ith gmsh element
-    [1] - minimum element node number
-    [2] - maximum element node number
-    [3] - number of element nodes
-
-    This will remap the values such that it goes from
-    0 --> np.sum(prop_array[:,2]) so that array indices
-    can be used for fast coordinate mapping
+    Returns:
+        Remapped x `ndarray` according to `prop_array`
     '''
 
     out = np.zeros_like(x, dtype=np.int64)
@@ -40,29 +42,33 @@ def map_nodes(x, prop_array):
 
 
 @numba.njit
-def homogenous_transform(coords, L):
+def homogenous_transform(coords, A):
     '''
-    Transform into homogenous coordinates and apply linear map,
-    will modify input!
-        coords                              (1x3) array to transform
-        L                                   Linear map to apply
+    Transform into homogenous coordinates and apply an affine map
+
+    Arguments:
+        coords (ndarray): (1,3) array to transform
+        A (ndarray): (4,4) Affine map to apply
     '''
 
     # Simpler implementation
-    coords = np.dot(L[:3, :3], coords.T)
-    coords += L[:3, 3:4]
+    coords = np.dot(A[:3, :3], coords.T)
+    coords += A[:3, 3:4]
     return coords.T
 
 
 @numba.njit
 def meshgrid(x, y, z):
     '''
-    Create a mesh-grid using values in x,y,z - all arrays must
-    be of same length
-        x                                   X-coordinate array
-        y                                   Y-coordinate array
-        z                                   Z-coordinate array
-    Returns a [3,n] matrix of all points within cubic grid
+    Create a coordinate array for all combinations of points in `x,y,z`
+
+    Arguments:
+        x (ndarray): (N,) x-coordinate array
+        y (ndarray): (N,) y-coordinate array
+        z (ndarray): (N,) z-coordinate array
+
+    Returns:
+        (3,P) matrix of all permutations of `x,y,z`
     '''
     # Create output array of all possible combinations
     mg = np.zeros((3, x.size * y.size * z.size), np.int32)
@@ -80,12 +86,22 @@ def meshgrid(x, y, z):
     return mg
 
 
+# TODO: Remove 1mm voxel size assumption
 @numba.njit
 def aabb_voxels(coords):
     '''
-    Use axis-aligned boundary box in voxel space to identify candidate voxels
-        coords      (4,3) array containing tetrahedral coordinates
-                    in voxel space
+    Identify voxels within an axis-aligned boundary box that contain
+    coordinates in `coords`
+
+    Arguments:
+        coords (ndarray): (4,3) array containing tetrahedral coordinates
+            in voxel space
+
+    Returns:
+        Voxel (i,j,k) coordinates containing a coordinate in `coords`
+
+    Notes:
+        Assumes voxels are isotropic 1x1x1!
     '''
 
     # Pre-allocate and store bounds
@@ -111,10 +127,16 @@ def aabb_voxels(coords):
 @numba.njit
 def uniform_tet(coords):
     '''
+    Generate a sample within a tetrahedron from a uniform distribution
+
     Argument:
-        coords                A (4,3) matrix with rows representing nodes
-    Output:
-        point                 A random point inside the tetrahedral volume
+        coords (ndarray): (4,3) tetrahedral vertex array
+
+    Returns:
+        A random point inside the tetrahedral volume defined by `coords`
+
+    References:
+        http://vcg.isti.cnr.it/jgt/tetra.htm
     '''
 
     s = np.random.uniform(0, 1)
@@ -144,13 +166,16 @@ def uniform_tet(coords):
 @numba.njit
 def point_in_vox(point, midpoint, voxdim=1):
     '''
+    Check whether `point` is inside a voxel defined by its
+    `midpoint` and `voxdim`
+
     Arguments:
-        point                         Iterable of length 3
-        midpoint                      Voxel midpoint
-        voxdim                        Voxel dimensions, assuming isotropic
+        point (ndarray): (3,) point to check
+        midpoint (ndarray): (3,) voxel midpoint
+        voxdim (float): voxel width, assuming isotropic
 
     Output:
-        Boolean: True if point in voxel bounds
+        True if point in voxel bounds
     '''
 
     # Shift midpoint upwards by half a voxel (left,top,back --> centre of cube)
@@ -174,15 +199,17 @@ def point_in_vox(point, midpoint, voxdim=1):
 @numba.njit
 def estimate_partial_parcel(coord, vox, parcels, out, n_iter=300):
     '''
-    Arguments:
-        coord               (4,3) indexable iterable of tetrahedral coordinates
-        vox                 (n,3) indexable iterable of voxel coordinates
-        parcels             (n,1) indexable iterable of parcel labels
-                            associated with jth voxel coordinate
-        out                 A reference to an array (slice) to be written into
-        iter                 Number of Monte-Carlo sampling interations
+    Estimate parcellation labels composition of a tetrahedron
 
-    For each tetrahedron we want to assign the value of the voxel
+    Arguments:
+        coord (ndarray): (4,3) tetrahedron vertices
+        vox (ndarray): (n,3) voxel coordinates
+        parcels (ndarray): (n,1) voxel parcel labels
+        out (ndarray): output array
+        iter (int): number of Monte-Carlo sampling interations
+
+    Returns:
+        (P,) `ndarray` of how much of each parcel is in a tetrahedron
     '''
 
     # Check degenerate case
@@ -217,12 +244,18 @@ def tetrahedral_parcel_projection(node_list,
                                   affine,
                                   n_iter=300):
     '''
-    Perform tetrahedral projection (parcellation version)
-        node_list           List of tetrahedral nodes
-        coord_arr           Coordinate list (length=n) in groups of 3
-                            for each node
-        ribbon              3D array containing parcels
-        affine              Affine transformation matrix associated with ribbon
+    Perform tetrahedral projection for parcellation inputs
+
+    Arguments:
+        node_list (ndarray): (T, 4) List of tetrahedral vertex IDs
+        coord_arr (ndarray): (N, 3) Vertex coordinate list
+        ribbon (ndarray): (X,Y,Z) MRI parcellation volume array
+        affine (ndarray): Affine transformation matrix associated with `ribbon`
+        n_iter (int): Number of monte-carlo iterations to estimate proportion
+            of volume
+
+    Returns:
+        (T,P) array containing parcel compositions for each tetrahedron
     '''
 
     # Compute inverse affine
@@ -277,13 +310,23 @@ def tetrahedral_parcel_projection(node_list,
     return out_arr / n_iter
 
 
+# TODO: Make better description/function name
 @numba.njit
 def get_vertex_range(arr, i, j, k):
     '''
-    Wrapper for numba to be able to use tuple-based indexing with Python 3.6+
+    Wrapper for numba to be able to use tuple-based indexing with Python 3.6+.
 
     Given an array arr, an index base i, and a stride of k.
-    Generate an array which starts at k*arr[i] and goes to (k*arr[i])+k
+    Generate an array which starts at k*arr[i,j] and goes to (k*arr[i,j])+k
+
+    Arguments:
+        arr (ndarray): Array to index
+        i (int): row to select
+        j (int): column to select
+        k (int): end point of range
+
+    Returns:
+        Range from `k*a[i,j]` to `k*[a[i,j]]+k`
     '''
 
     start = k * arr[i, j]
@@ -299,11 +342,19 @@ def tetrahedral_weight_projection(node_list,
                                   affine,
                                   n_iter=300):
     '''
-    Perform tetrahedral projection (parcellation version)
-        node_list       List of tetrahedral nodes
-        coord_arr       Coordinate list (length=n) in groups of 3 for each node
-        ribbon          3D array containing parcels
-        affine          Affine transformation matrix associated with ribbon
+    Perform tetrahedral projection for weighted inputs
+
+    Arguments:
+        node_list (ndarray): (T, 4) List of tetrahedral vertex IDs
+        coord_arr (ndarray): (N, 3) Vertex coordinate list
+        ribbon (ndarray): (X,Y,Z) Continously valued volume array
+        affine (ndarray): Affine transformation matrix associated with `ribbon`
+        n_iter (int): Number of monte-carlo iterations to estimate proportion
+            of volume
+
+    Returns:
+        (T,) array containing `ribbon` values resampled to
+            tetrahedral volume mesh
     '''
     # Compute inverse affine
     inv_affine = np.linalg.inv(affine)
@@ -358,17 +409,17 @@ def tetrahedral_weight_projection(node_list,
 @numba.njit
 def estimate_partial_weights(coord, vox, weights, out, n_iter=300):
     '''
-    Arguments:
-        coord               (4,3) indexable iterable of tetrahedral coordinates
-        vox                 (n,3) indexable iterable of voxel coordinates
-        weights             (n,1) indexable iterable of weight associated with
-                            jth voxel coordinate
-        out                  A reference to an array (slice) to be written into
-        iter                 Number of Monte-Carlo sampling interations
+    Estimate resampled value of a tetrahedron from voxels
 
-    For each sampling point in tetrahedron check voxel membership.
-    If membership is determined then add corresponding weight to out
-    (accumulating score)
+    Arguments:
+        coord (ndarray): (4,3) tetrahedron vertices
+        vox (ndarray): (n,3) voxel coordinates
+        weights (ndarray): (n,1) voxel values
+        out (ndarray): output array to write to
+        iter (int): number of Monte-Carlo sampling interations
+
+    Returns:
+        Scalar value of tetrahedron from resampling from voxel weights
     '''
 
     # No degenerate case exists

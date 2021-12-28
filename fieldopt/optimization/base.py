@@ -1,3 +1,7 @@
+"""
+Base classes for Fieldopt optimizers
+"""
+
 from abc import ABC, abstractmethod
 import numpy as np
 
@@ -26,6 +30,12 @@ class IterableOptimizer(ABC):
 
     @property
     def sign(self):
+        '''
+        Sign of objective function
+
+        Returns:
+            sign (float): -1 if maximization problem, 1 if minimization
+        '''
         return -1 if self.maximize else 1
 
     def _increment(self):
@@ -33,7 +43,10 @@ class IterableOptimizer(ABC):
 
     def optimize(self, print_status=False):
         '''
-        Perform full optimization on objective function
+        End-to-end optimization of an objective function
+
+        Returns:
+            history list(dict): Optimization historical data
         '''
         history = [res for res in self.iter(print_status)]
         return history
@@ -45,6 +58,13 @@ class IterableOptimizer(ABC):
         The objective function is expected to return an iterable
         of the results with ordering matching the input sampling
         points
+
+        Arguments:
+            sampling_points (ndarray): (N,P) points to sample
+                objective function at
+
+        Returns:
+            obj (ndarray): (N,) Objective vector
         '''
 
         res = self.obj_func(sampling_points)
