@@ -1,3 +1,5 @@
+"""Gmsh mesh manipulation routines
+"""
 import numpy as np
 import numba
 import fieldopt.geometry.geometry as geometry
@@ -6,11 +8,17 @@ import gmsh
 
 def load_gmsh_nodes(gmshpath, entity):
     '''
-    Given a fullpath to some .msh file
-    load in the mesh nodes IDs, triangles and coordinates.
-    gmshpath -- path to gmsh file
-    dimtag   -- tuple specifying the (dimensionality,tagID) being loaded
-    If entity=(dim,tag) not provided then pull the first entity and return
+    Load gmsh .msh file and load (nodes, coordinates, parameters)
+
+    Arguments:
+        gmshpath (str): Path to .msh file
+        entity (tuple): (dim, tag) tuple identifying the entity
+            to query
+
+    Returns:
+        nodes (ndarray): (N,) Node ID array shifted to 0-based indexing
+        coords (ndarray): (N, 3) node coordinate array
+        parameters (ndarray): (N, P) node parameter array
     '''
 
     gmsh.initialize()
@@ -24,7 +32,19 @@ def load_gmsh_nodes(gmshpath, entity):
 
 def load_gmsh_elems(gmshpath, entity):
     '''
-    Wrapper function for loading gmsh elements
+    Load gmsh .msh file and load (elm_types, ids, node_maps)
+
+    Arguments:
+        gmshpath (str): Path to .msh file
+        entity (tuple): (dim, tag) tuple identifying the entity
+            to query
+
+    Returns:
+        elm_types (ndarray): (N,) Element type array
+            (3=triangle, 4=tetrahedron)
+        ids (ndarray): (N, P) Element ID array shifted to 0-based indexing
+        node_map (ndarray): (N, DIM) Vertex IDs for element.
+            DIM=3 if triangles. DIM=4 if tetrahedrons.
     '''
 
     gmsh.initialize()
@@ -38,7 +58,15 @@ def load_gmsh_elems(gmshpath, entity):
 
 def closest_point2surf(p, coords):
     '''
-    Get closest point c in coords to p
+    Get closest point :math:`c` in coords to :math:`p`
+    by minimizing the euclidean distance metric
+
+    Arguments:
+        p (ndarray): (3,) point
+        coords (ndarray): (N, 3) set of coordinates
+
+    Returns:
+        (3,) coordinate :math:`c` closest to :math:`p` in `coords`
     '''
 
     ind = np.argmin(np.linalg.norm(coords - p, axis=1))
@@ -48,15 +76,16 @@ def closest_point2surf(p, coords):
 @numba.njit(parallel=True)
 def get_relevant_triangles(verts, triangles):
     '''
-    From an array of vertices and triangles,
-    get triangles that contain at least 1 vertex
+    Get set of all triangles in `triangles`
+    that contain at least 1 vertex in `verts`.
+
     Arguments:
-        verts                               1-D array of vertex IDs
-        triangles                           (NX3) array of triangles, where
-                                            each column is a vertex
-    Output:
-        t_arr                               True of triangle contains at least
-                                            one vertex from list
+        verts (ndarray): (N,) array of vertex IDs
+        triangles (ndarray): (P,3) array of triangle vertices
+
+    Returns:
+        t_arr (ndarray): (P,) boolean array. True if triangle contains at least
+            one vertex from `verts
     '''
 
     t_arr = np.zeros((triangles.shape[0]), dtype=np.int64)
@@ -77,24 +106,18 @@ def get_relevant_triangles(verts, triangles):
 
 def get_normals(point_tags, all_tags, coords, trigs):
     '''
-    Given a patch defined by the node IDs given by point_tags
-    compute the surface normal of the patch. This is done by
-    completing the triangles given by the set of point_tags,
-    then computing normal of each vertex weighted by triangle
-    area. Finally the set of normals across vertices defined
-    in the patch is averaged to yield the patch normal.
+    Get averaged local normal for a contiguous subset of a surface mesh
 
     Arguments:
-        point_tags          Set of Node IDS defining the patch
-                            to compute the normal for
-        all_tags            The set of all Node IDs belonging
-                            to the mesh
-        coords              The coordinates of all the vertices
-                            belonging to the mesh
-        trigs               Array describing triangle faces
+        point_tags (ndarray): (K,) Subset of contiguous Node ids
+            to use for computing local normal
+        all_tags (ndarray): (N,) The set of all Node ids belonging
+            to the mesh
+        coords (ndarray): (N,3) Coordinates of nodes in `all_tags`
+        trigs (ndarray): (P,3) Triangle face array
 
-    Output:
-        A 1x3 vector of the patch normal
+    Returns:
+        (3,) normal vector of patch defined by `point_tags`
     '''
 
     t_arr = get_relevant_triangles(point_tags, trigs)
@@ -116,23 +139,22 @@ def get_normals(point_tags, all_tags, coords, trigs):
 
 def ray_interception(pn, pf, coords, trigs, epsilon=1e-6):
     '''
-    Compute interception point and distance of ray to mesh defined
-    by a set of vertex coordinates and triangles. Yields minimum coordinate
-    of ray.
-
-    Algorithm vectorized and
-    adapted from http://geomalgorithms.com/a06-_intersect-2.html
+    Compute interception point and distance of ray to mesh.
+    Only the first collision is returned.
 
     Arguments:
-        pn, pf              Points to define ray (near, far)
-        coords              Array of vertex coordinates defining mesh
-        trigs               Array of vertex IDs defining mesh triangles
+        pn (ndarray): (3,) starting point of ray
+        pf (ndarray): (3,) far point of ray
+        coords (ndarray): (N,3) Vertex coordinate array
+        trigs (ndarray): (P,3) Triangle face array
 
     Returns:
-        p_I                 Minimum Point of intersection
-        ray_len             Length of line from pn to p_I
-        min_trig            Triangle ID that contains the shortest
-                            length intersection
+        p_I (ndarray): (3,) Intersection point
+        ray_len (float): Euclidean length of line from `pn` to `p_I`
+        min_trig (int): Index of triangle that first collided with ray
+
+    References:
+        http://geomalgorithms.com/a06-_intersect-2.html
     '''
 
     # Get coordinates for triangles
@@ -189,14 +211,19 @@ def ray_interception(pn, pf, coords, trigs, epsilon=1e-6):
 @numba.njit
 def vertex_normals(trigs, coords):
     '''
-    Compute vertex normals using cumulative normalization trick
+    Compute vertex normals
+
     Arguments:
-        trigs          Array of triangles with normalized values
-                       range(1,size(unique(trigs)))
-        coords         Array of coordinates
-                       (vals in trigs correspond to inds in coords)
+        trigs (ndarray): (P,3) Normalized triangle face array (see note)
+        coords (ndarray): (N,3) Array of vertex coordinates
+
     Output:
-        norm_arr       Array of norm vectors
+        (K,3) vertex normals
+
+    Note:
+        `trigs` must be normalized such that `max(trigs) = N-1`. So
+        that each element value in `trigs` can be used to directly
+        index a row in `coords`
     '''
 
     cnorm_arr = np.zeros((coords.shape[0], 3), dtype=np.float64)
@@ -223,16 +250,16 @@ def vertex_normals(trigs, coords):
 @numba.njit(parallel=True)
 def get_subset_triangles(verts, triangles):
     '''
-    From an array of vertices and triangles,
-    get the triangles that contain all vertices
+    Get all triangles in `triangles` that have all their vertices
+    listed in `verts`.
+
     Arguments:
-        verts          1-D array of vertex IDs
-        triangles      (Nx3) array of triangles where each column is a vertex
+        verts (ndarray): (N,) array of vertex IDs
+        triangles (ndarray): (P,3) triangle face array
 
     Output:
-        t_arr          Nx1 Boolean array where indices correspond to
-                       triangles. True if all 3 vertices of triangle
-                       found in verts
+        (P,) boolean array indicating triangles where all vertices
+            are found in `verts`
     '''
 
     t_arr = np.zeros((triangles.shape[0]), dtype=np.int64)

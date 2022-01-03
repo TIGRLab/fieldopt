@@ -1,5 +1,4 @@
-'''
-Set of classes to define continuous sampling domains
+'''Sampling domains for TMS field optimization
 '''
 
 import fieldopt.geometry.geometry as geometry
@@ -14,14 +13,12 @@ class QuadraticDomain():
         Build a quadratic sampling domain on a Mesh around point `initial_p`
 
         Arguments:
-            mesh                        simnibs.Msh.mesh_io.Mesh object
-            initial_p                   Initial point to grow sampling region
-            span                        Radius of points to include in
-                                        sampling surface
-            local_span                  Radius of points to include in
-                                        construction of local geometry
-                                        for normal and curvature estimation
-            distance                    Distance from coil to head surface
+            mesh: `fieldopt.geometry.mesh_wrapper.HeadModel` object
+            initial_p (ndarray): 1x3 Initial point to grow sampling region
+            span (float): Radius of points to include in sampling surface
+            local_span (float): Radius of points to include in construction
+                of local geometry for normal and curvature estimation
+            distance (float): Distance from coil to head surface
         '''
 
         self.span = span
@@ -33,7 +30,18 @@ class QuadraticDomain():
     def _initialize_quadratic_surface(self, mesh, p):
         '''
         Construct quadratic basis and rotation at centroid point
-        to use for sampling
+        to use for continous sampling in head domain
+
+        Arguments:
+            mesh: `fieldopt.geometry.mesh_wrapper.HeadModel` object
+                representing gmsh .msh head model file
+            p (ndarray): (3,) coordinates of initial centroid point to build
+                domain around
+
+        Returns:
+            C (ndarray): (6,) Coefficients of quadratic domain
+            iR (ndarray): (4,4) Affine rotation matrix
+            bounds (ndarray): (3,2) Bounds for (x,y,theta)
         '''
 
         v = mg.closest_point2surf(p, mesh.coords)
@@ -55,6 +63,12 @@ class QuadraticDomain():
         '''
         Given a single point construct a local quadric
         surface on a given mesh
+
+        Arguments:
+            mesh: `fieldopt.geometry.mesh_wrapper.HeadModel` object
+                representing gmsh .msh head model file
+            p (ndarray): (3,) coordinates of sampling point to build
+                local domain around
         '''
 
         # Get local neighbourhood
@@ -65,7 +79,7 @@ class QuadraticDomain():
 
         # Calculate normals
         normals = mg.get_normals(mesh.nodes[neighbours_ind], mesh.nodes,
-                                       mesh.coords, mesh.trigs)
+                                 mesh.coords, mesh.trigs)
 
         # Usage average of normals for alignment
         n = normals / nplalg.norm(normals)
@@ -112,19 +126,21 @@ class QuadraticDomain():
     def place_coil(self, mesh, x, y, theta, flip_norm=True):
         '''
         Place coil on mesh surface
-        Arguments:
-            mesh                fieldopt.geometry.mesh_wrapper.HeadModel
-                                object
-            x                   x coordinate of domain
-            y                   y coordinate of domain
-            theta               Coil orientation
-            flip_norm           Whether the normal should be flipped
-                                when constructing the orientation matrix
 
-        Returns a matsimnibs orientation matrix
+        Arguments:
+            mesh: `fieldopt.geometry.mesh_wrapper.HeadModel` object
+            x (float): x coordinate of domain
+            y (float): y coordinate of domain
+            theta (float): Coil orientation
+            flip_norm (bool): Whether the normal should be flipped
+                when constructing the orientation matrix
+
+        Returns:
+            matsimnibs (ndarray): A matsimnibs orientation matrix
         '''
         sample, R, C, _ = self._get_sample(mesh, x, y)
-        preaff_rot, preaff_norm = geometry.quadratic_surf_rotation(0, 0, theta, C)
+        preaff_rot, preaff_norm = geometry.quadratic_surf_rotation(
+            0, 0, theta, C)
         rot = R[:3, :3] @ preaff_rot
         n = R[:3, :3] @ preaff_norm
 

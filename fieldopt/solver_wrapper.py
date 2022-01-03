@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 
 class Pardiso:
+    """
+    PARDISO solver wrapper
+    """
     def __init__(self, A):
         logger.info("Factorizing A for PARDISO solver")
         start = time.time()
@@ -26,10 +29,23 @@ class Pardiso:
         atexit.register(self.solver.free_memory)
 
     def solve(self, B):
+        """
+        Solve linear equation :math:`Ax=B`
+
+        Arguments:
+            B (ndarray): (N,P) array of :math:`P` problems for
+                :math:`N` elements
+
+        Returns:
+            X (ndarray): (N,P) Solutions matrix
+        """
         return self.solver.solve(self._A, B)
 
 
 class PETSc:
+    """
+    PETSc solver wrapper
+    """
     def __init__(self, A, solver_opt=DEFAULT_SOLVER_OPTIONS):
         logger.info("Using PetSC solver")
         self.A = A
@@ -39,16 +55,42 @@ class PETSc:
         atexit.register(petsc_solver.petsc_finalize)
 
     def solve(self, B):
+        """
+        Solve linear equation :math:`Ax=B`
+
+        Arguments:
+            B (ndarray): (N,P) array of :math:`P` problems for
+                :math:`N` elements
+
+        Returns:
+            X (ndarray): (N,P) Solutions matrix
+        """
         petsc_solver.petsc_solve(self.solver_opt, self.A, B)
 
 
 def get_solver(solver, A):
+    """
+    Get solver using string names
+
+    Arguments:
+        solver (str): Name of solver to initialize
+        A (ndarray): (N, N) Left-hand matrix of :math:`AX=B` to solve
+
+    Returns:
+        Solver interface providing a `solver.solve(B)` method
+
+    Note:
+        Valid solvers are: ["pardiso", "petsc"]
+
+    Raises:
+        KeyError: If `solver` does not match a valid solver
+    """
     solvers = {"pardiso": Pardiso, "petsc": PETSc}
 
     if solvers != "petsc":
         # Initializing simnibs.fem forces petsc initialization which
         # causes annoying false error messages.
-        # Here if we're not using petsc shut it down
+        # If we're not using petsc shut it down
         petsc_solver.petsc_finalize()
         atexit.unregister(petsc_solver.petsc_finalize)
 

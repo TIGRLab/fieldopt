@@ -1,3 +1,7 @@
+"""
+Bayesian optimizer
+"""
+
 from collections import deque
 import wrapt
 import time
@@ -60,6 +64,14 @@ def _check_initialized(wrapped, instance, args, kwargs):
 
 
 class BayesianMOEOptimizer(IterableOptimizer):
+    """
+    Initialize default parameters for running a Bayesian optimization
+    algorithm on an objective function with parameters.
+
+    Initializes a squared exponential covariance prior using a
+    - tophat prior on the lengthscale
+    - lognormal prior on the covariance amplitude
+    """
     def __init__(self,
                  objective_func,
                  samples_per_iteration,
@@ -71,34 +83,21 @@ class BayesianMOEOptimizer(IterableOptimizer):
                  max_iterations=None,
                  epsilon=1e-3):
         '''
-        Initialize default parameters for running a Bayesian optimization
-        algorithm on an objective function with parameters.
-
-        Initializes a squared exponential covariance prior using a
-        - tophat prior on the lengthscale
-        - lognormal prior on the covariance amplitude
-
         Arguments:
-            objective_func              Objective function
-            samples_per_iteration       Number of samples to propose
-                                        per iteration
-            bounds                      [P x 2] array where each row
-                                        corresponds to the (min, max)
-                                        of feature P
-            minimum_samples             Minimum number of samples to collect
-                                        before performing convergence checks
-            prior                       Cornell MOE BasePrior subclass
-                                        to use for lengthscale and
-                                        covariance amplitude
-            sgd_params                  Stochastic Gradient Descent parameters
-                                        (see: cornell MOE's
-                                        GradientDescentParameters)
-            maximize                    Boolean indicating whether the
-                                        objective function is to be
-                                        maximized instead of being minimized
-            epsilon                     Standard deviation convergence
-                                        threshold
-
+            objective_func (callable): Objective function
+            samples_per_iteration (int): Number of samples to propose
+                per iteration
+            bounds (ndarray): (P,2) array where each row
+                corresponds to the (min, max) of feature :math:`p`
+            minimum_samples (int): Minimum number of samples to collect
+                before performing convergence checks
+            prior (BasePrior): Cornell MOE BasePrior subclass
+                to use for lengthscale and covariance amplitude
+            sgd_params (GradientDescentParameters): Stochastic
+                Gradient Descent parameters (see: cornell MOE's
+                GradientDescentParameters)
+            maximize (bool): Maximize if true, else minimize
+            epsilon (float): Standard deviation convergence threshold
         '''
 
         super(BayesianMOEOptimizer, self).__init__(objective_func, maximize)
@@ -132,6 +131,13 @@ class BayesianMOEOptimizer(IterableOptimizer):
         self.num_samples = samples_per_iteration
 
     def get_history(self):
+        '''
+        Retrieve current optimization history
+
+        Returns:
+            history (ndarray): [N, (*inputs, value)] array, where
+                N is the number of points that have been sampled
+        '''
         history = []
         for c, v in self.best_point_history:
             history.append(np.array([*c, v]))
@@ -156,8 +162,10 @@ class BayesianMOEOptimizer(IterableOptimizer):
     @property
     def gp(self):
         '''
-        Returns a single Gaussian process model
-        from the current ensemble
+        Gaussian process model from the current ensemble
+
+        Returns:
+            gp (GaussianProcessLogLikelihoodMCMC): :math:`GP` model
         '''
         # TODO: Logging
         if self.gp_loglikelihood is None:
@@ -170,9 +178,12 @@ class BayesianMOEOptimizer(IterableOptimizer):
     @property
     def current_best(self):
         '''
-        Returns the current best input coordinate and value
+        Get current estimate of optimal value
+
+        Returns:
+            best_coord (ndarray): (P,) best input coordinate
+            best_value (float): Objective function evaluated at `best_coord`
         '''
-        # TODO: Logging
         if self.gp_loglikelihood is None:
             logging.warning("Model has not been initialized "
                             "Use .initialize_model() or .step() to "
@@ -185,7 +196,7 @@ class BayesianMOEOptimizer(IterableOptimizer):
         return best_coord, best_value
 
     @property
-    def buffer_filled(self):
+    def _buffer_filled(self):
         return len(self.convergence_buffer) == self.convergence_buffer.maxlen
 
     @property
@@ -195,7 +206,8 @@ class BayesianMOEOptimizer(IterableOptimizer):
         Examines whether the standard deviation of the history of length
         `self.min_samples` is below `self.epsilon`
 
-        If the minimum number of iterations have not been met, returns False
+        Returns:
+            converged (bool): False if stop criterion has not been met, else True
         '''
         # Minimum number of iterations have not been met
         if (self.max_iter is not None) and (self.iteration == self.max_iter):
@@ -203,7 +215,7 @@ class BayesianMOEOptimizer(IterableOptimizer):
                          " N={self.max_iter}")
             return True
 
-        if not self.buffer_filled:
+        if not self._buffer_filled:
             return False
 
         if self.gp_loglikelihood is None:
@@ -229,8 +241,8 @@ class BayesianMOEOptimizer(IterableOptimizer):
         an initial set of observations
 
         Returns:
-            init_pts            Initial sampling points
-            res                 Objective function evaluations of init_pts
+            init_pts (ndarray): (N,P) Initial sampling points
+            res (ndarray): (N,) Objective function evaluations of `init_pts`
         '''
 
         self.iteration = 0
@@ -258,13 +270,13 @@ class BayesianMOEOptimizer(IterableOptimizer):
         return init_pts, res
 
     @_check_initialized
-    def update_model(self, evidence):
+    def _update_model(self, evidence):
         '''
         Updates the current ensemble of models with
         new data
 
         Arguments:
-            evidence            New SamplePoint data
+            evidence (SamplePoint): New SamplePoint data
         '''
         self.gp_loglikelihood.add_sampled_points(evidence)
         self.gp_loglikelihood.train()
@@ -287,8 +299,8 @@ class BayesianMOEOptimizer(IterableOptimizer):
         set of ensemble models
 
         Returns:
-            samples         Set of optimal samples to evaluate
-            ei              Expected improvement
+            samples (ndarray): (N,P) Set of q-EI optimal samples to evaluate
+            ei (float): q-Expected improvement
         '''
         samples, ei = _gen_sample_from_qei(self.gp, self.c_search_domain,
                                            self.sgd, self.num_samples)
@@ -297,11 +309,16 @@ class BayesianMOEOptimizer(IterableOptimizer):
     def step(self):
         '''
         Performs one iteration of Bayesian optimization:
-            1. get sampling points via maximizing qEI
-            2. Evaluate objective function at proposed sampling points
-            3. Update ensemble of Gaussian process models
-            4. Store current best in the history of best points
-            5. Increment iteration counter
+        1. get sampling points via maximizing qEI
+        2. Evaluate objective function at proposed sampling points
+        3. Update ensemble of Gaussian process models
+        4. Store current best in the history of best points
+        5. Increment iteration counter
+
+        Returns:
+            sampling_points (ndarray): Points sampled
+            res (ndarray): Objective function evaluations at `sampling_points`
+            qEI (float): q-Expected Improvement of `sampling_points`
         '''
         if self.iteration == 0:
             sampling_points, res = self.initialize_model()
@@ -316,7 +333,7 @@ class BayesianMOEOptimizer(IterableOptimizer):
             evidence = [
                 SamplePoint(c, v, 0.0) for c, v in zip(sampling_points, res)
             ]
-            self.update_model(evidence)
+            self._update_model(evidence)
         self._update_history()
 
         _, best = self.current_best
@@ -327,8 +344,10 @@ class BayesianMOEOptimizer(IterableOptimizer):
 
     def iter(self, print_status=False):
         '''
-        Returns an generator to perform
-        end-to-end optimization
+        Generator for end-to-end optimization
+
+        Yields:
+            iter_result (dict): Iteration tracking information
         '''
         while not self.converged:
 
@@ -336,7 +355,7 @@ class BayesianMOEOptimizer(IterableOptimizer):
             sampling_points, res, qEI = self.step()
             best_point, best_val = self.current_best
 
-            if self.buffer_filled:
+            if self._buffer_filled:
                 criterion = self._compute_convergence_criterion()
             else:
                 criterion = None
@@ -374,15 +393,21 @@ def get_default_tms_optimizer(f,
     prior hyperparameters
 
     Arguments:
-        f                   FieldFunc objective function
-        num_samples         Number of samples to evaluate in parallel
-        minimum_samples     Minimum number of samples to evaluate before
-                            performing convergence checks
-        max_iterations      Maximum number of iterations before cutting
-                            off optimization
+        f (fieldopt.objective.FieldFunc): FieldFunc objective function
+        num_samples (int): Number of samples to evaluate in parallel
+        minimum_samples (int): Minimum number of samples to evaluate before
+            performing convergence checks
+        max_iterations (int): Maximum number of iterations before cutting
+            off optimization
+
     Returns:
-        Configured BayesianMOEOptimizer instance with the following priors:
-        - Squared exponential covariance function:
+        optimizer (fieldopt.optimization.bayes_moe.BayesianMOEOptimizer):
+            Configured optimizer
+
+
+    Note:
+        Optimizer is initialized with a squared exponential
+        covariance function with the following priors:
             - Length scale with a TopHat(-2, 5)
             - Log-normal covariance amplitude Ln(Normal(12.5, 1.6))
     '''

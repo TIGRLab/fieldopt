@@ -1,4 +1,7 @@
 # coding: utf-8
+'''
+Objective function for evaluating TMS field simulations
+'''
 
 import logging
 import time
@@ -24,16 +27,7 @@ FIELDS = ['e']
 
 class FieldFunc():
     '''
-    This class provides an interface in which the details related
-    to simulation and score extraction is abstracted away for
-    any general Optimization package
-
-    Layout
-    Properties:
-        1. Mesh file to perform simulation on
-        2. Store details surrounding the input -->
-            surface transformations (use file paths?)
-
+    TMS simulation objective function
     '''
     def __init__(self,
                  head_model,
@@ -45,22 +39,19 @@ class FieldFunc():
                  nthreads=None,
                  solver='pardiso'):
         '''
-        Standard constructor
         Arguments:
-            mesh                        simnibs.Msh.mesh_io.Msh object
-            sampling_domain             fieldopt.geometry.sampler Domain class
-            tet_weights                 Weighting scores for each tetrahedron
-                                        (1D array ordered by node ID)
-            coil                        TMS coil file (either dA/dt volume or
-                                        coil geometry)
-            didt                        Intensity of stimulation
-            nworkers                    Number of workers to spawn
-                                        in order to set up simulations
-                                        (compute B)
-            nthreads                    Maximum number of physical cores
-                                        for solver to use [Default: use all]
-            solver                      Solver to use to compute FEM solution
-                                        [Default: pardiso]
+            mesh: simnibs.Msh.mesh_io.Msh object
+            sampling_domain: fieldopt.geometry.sampler Domain class
+            tet_weights (ndarray): (T,) Weighting scores for each tetrahedron
+            coil (str): TMS coil file (either dA/dt volume or
+                coil geometry)
+            didt (float): Intensity of stimulation
+            nworkers (int): Number of workers to spawn for simulations
+            nthreads (int): Maximum number of physical cores
+                for solver to use [Default: use all]
+            solver (str): Solver to use to compute FEM solution
+                [Default: pardiso]. See fieldopt.solvers for list of
+                available solvers
         '''
 
         self.model = head_model
@@ -93,15 +84,22 @@ class FieldFunc():
 
     @property
     def mesh(self):
+        '''
+        Get underlying simnibs.msh.Msh object
+        '''
         return self.model.mesh
 
     def place_coils(self, input_list):
         '''
-        For an input list of triplets (x,y,theta), place coils
-        on the head model according to the defined Domain `self.domain`
+        Place multiple coil locations on parameteric surface defined
+        by objective funtion domain
 
         Arguments:
-            input_list              List of (x,y,t) triplets
+            input_list (List[tuple(float,float,float]): (N,3) iterable
+                containing (x,y,theta) entries
+
+        Returns:
+            List of SimNIBS matsimnibs matrices of length N
         '''
 
         logger.info("Transforming inputs...")
@@ -112,14 +110,16 @@ class FieldFunc():
 
     def evaluate(self, input_list, out_basename=None):
         '''
-        Given a quadratic surface input (x,y) and rotational
-        interpolation angle (theta) compute the resulting field score
-        over a region of interest
+        Evaluate the TMS objective function on a list of input
+        coordinates
+
         Arguments:
-            [(x,y,theta),...]           A iterable of iterable (x,y,theta)
+            input_list (List[tuple(float,float,float]): (N,3) iterable
+                containing (x,y,theta) entries
 
         Returns:
-            scores                      An array of scores in order of inputs
+            (N,) array of total E-field magnitudes over ROI for each
+                input position
         '''
 
         matsimnibs = self.place_coils(input_list)
@@ -140,17 +140,26 @@ class FieldFunc():
                            out_geo=None,
                            fields=FIELDS):
         '''
-        Generate a simulation visualization for a given (x,y,theta) on the
-        configured `sampling_domain`.
+        Generate a visualization of a TMS simulation on a given
+        coordinate
 
         Arguments:
-            x                       Sampling domain x
-            y                       Sampling domain y
-            theta                   Sampling domain rotation angle
-            matsimnibs              Matsimnibs matrix to use directly
-            out_sim                 Output path for msh file
-            out_geo                 Output path for coil position file
-            fields                  Fields to include in visualization
+            x (float): Sampling domain x
+            y (float): Sampling domain y
+            theta (float): Sampling domain rotation angle
+            matsimnibs (ndarray): (4,4) Matsimnibs matrix
+            out_sim (str): Output path for msh file
+            out_geo (str): Output path for coil position file
+            fields (List[str]): Fields to include in visualization
+                [Default: normE]
+
+        Note:
+            If both :math:`(x,y,theta)` and `matsimnibs` are provided,
+                the former takes precedence.
+
+        Raises:
+            ValueError if either a full :math:`(x,y,theta)` set of inputs
+                or `matsimnibs` is not provided
         '''
 
         if all([x, y, theta]):
@@ -181,22 +190,17 @@ class FieldFunc():
 
     def get_coil2cortex_distance(self, input_coord):
         '''
-        Given an input sampling coordinate on the parameteric
-        mesh calculate the distance from the coil to target triangle
-        on the cortical surface mesh.
+        Compute distance from coil to cortical surface mesh using
+        ray interception.
 
-        This function wraps:
-        `simnibs.Msh.intercept_ray`
-
-        The proposed ray is drawn from the coil centre and is drawn
-        with large magnitude in the direction of the coil normal
+        This function wraps: `simnibs.msh.Msh.intercept_ray`
 
         Arguments:
-            input_coord : a 1 dimensional 3-iterable containing
-                x, y, and rotation
+            input_coord (tuple): (x,y,theta) tuple describing input
+                coordinates on objective function domain
 
         Returns:
-            d : The distance between the proposed coil location
+            d (float): The distance between the proposed coil location
                 and the target ROI on the cortex
         '''
 
@@ -221,6 +225,18 @@ class _Simulator:
                  roi=None,
                  num_workers=None,
                  nthreads=None):
+
+        """
+        Arguments:
+            model (fieldopt.geometry.mesh_wrapper.HeadModel): Head model
+            solver (str): Solver to use
+            didt (float): Stimulation dI/dt
+            coil (str): Path to TMS coil definition file
+            roi (ndarray): Element IDs to compute fields on
+            num_workers (int): Number of workers to use for setting up
+                stimulation problem
+            nthreads (int): Number of threads for solver to use
+        """
 
         self.FEMSystem = None
         self.solver = None
@@ -283,16 +299,15 @@ class _Simulator:
 
     def prepare_tms_matrix(self, mesh, m, fn_geo=None):
         '''
-        Construct right hand side of the TMS linear
-        problem
+        Construct right hand side of the TMS matrix problem
 
         Arguments;
-            mesh                    simnibs.msh.mesh_io.Msh object
-            m                       Matsimnibs matrix
+            mesh (simnibs.msh.mesh_io.Msh): Head model
+            m (ndarray): (4,4) Matsimnibs matrix
 
         Returns:
-            b                       RHS of simulation
-            dadt                    dA/dt for a given TMS coil position
+            b (ndarray): (N,) RHS of simulation
+            dadt (ndarray): dA/dt for a given TMS coil position
         '''
 
         dadt = coil_lib.set_up_tms(mesh,
@@ -304,7 +319,13 @@ class _Simulator:
         return b, dadt
 
     def calc_E(self, V, dAdt):
+        '''
+        Compute TMS electric fields from potentials
 
+        Arguments:
+            V (ndarray): TMS field potentials
+            dAdt (ndarray): Magnetic vector potential time derivative
+        '''
         E = np.stack([-d.dot(V) for d in self.D], axis=1) * 1e3
         E -= dAdt
         return E
@@ -313,7 +334,12 @@ class _Simulator:
         '''
         Solve FEM
 
-        B           Right hand-side of TMS FEM equation
+        Arguments:
+            B (ndarray): Right hand-side of TMS FEM equation
+
+        Note:
+            The solver stores the pre-computed A matrix of the left-hand
+            side
         '''
 
         B, dof_map = self.FEMSystem.dirichlet.apply_to_rhs(
@@ -329,6 +355,18 @@ class _Simulator:
         return X
 
     def run_simulation(self, mesh, matsimnibs):
+        '''
+        Run a TMS simulation on mesh with a set of coil positions
+        defined by `matsimnibs`
+
+        Arguments:
+            mesh (simnibs.msh.Msh): Head model
+            matsimnibs (List[ndarray]): List of (4,4) matsimnibs matrices
+
+        Returns:
+            E (ndarray): (T,3,M) Electric field matrix (T,3) for M
+                TMS position problems.
+        '''
 
         if not isinstance(matsimnibs, list):
             matsimnibs = [matsimnibs]
@@ -366,6 +404,15 @@ class _Simulator:
                             matsimnibs,
                             fields=FIELDS,
                             fn_geo=None):
+        '''
+        Compute TMS field simulation for the full head model
+
+        Arguments:
+            mesh (simnibs.msh.Msh): Head model
+            matsimnibs (ndarray): (4,4) matsimnibs matrix
+            fields (List[str]): List of fields to calculate
+            fn_geo (str): Path to output .geo coil position file
+        '''
 
         logger.info('Constructing right-hand side of FEM AX=B...')
         b, dadt = self.prepare_tms_matrix(mesh, matsimnibs, fn_geo=fn_geo)

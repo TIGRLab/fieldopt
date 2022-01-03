@@ -1,3 +1,6 @@
+"""
+Grid Optimizer
+"""
 import numpy as np
 from sklearn.utils.extmath import cartesian
 import time
@@ -21,12 +24,12 @@ class GridOptimizer(IterableOptimizer):
                  maximize=True):
         '''
         Arguments:
-            objective_func      Objective Function
-            batchsize           Number of evaluations to perform in parallel
-            sampling_density    [P] array indicating number of samples
-                                for a dimension p
-            bounds              [P x 2] Array where each row corresponds
-                                to the (min, max) for a dimension p
+            objective_func (callable): Objective Function
+            batchsize (int): Number of evaluations to perform in parallel
+            sampling_density (ndarray): (P,) array indicating number of samples
+                for a dimension :math:`p`
+            bounds (ndarray): (P,2) Array where each row corresponds
+                to the (min, max) for a dimension :math:`p`
         '''
         super(GridOptimizer, self).__init__(objective_func, maximize)
 
@@ -57,14 +60,22 @@ class GridOptimizer(IterableOptimizer):
 
     @property
     def completed(self):
+        """
+        Indicate whether all sample points have been evaluated
+
+        Returns:
+            completed (bool): Whether optimization is complete
+        """
         return self.iteration >= len(self.batches)
 
     @property
     def current_best(self):
         '''
+        Get current estimate of optimal value
+
         Returns:
-            best_coord          Best parameter coordinate
-            best_value          Current minimum of objective function
+            best_coord (ndarray): (P,) best input coordinate
+            best_value (float): Objective function evaluated at `best_coord`
         '''
 
         # No history is recorded
@@ -79,7 +90,11 @@ class GridOptimizer(IterableOptimizer):
 
     def get_history(self):
         '''
-        Get a [ (D + 1) x N ] array of previous results
+        Retrieve current optimization history
+
+        Returns:
+            history (ndarray): [N, (*inputs, value)] array, where
+                N is the number of points that have been sampled
         '''
 
         evaluated_points = np.vstack(self.batches[:self.iteration])
@@ -92,8 +107,8 @@ class GridOptimizer(IterableOptimizer):
         up to self.batchsize evaluations
 
         Returns:
-            sampling_points     Points sampled on iteration
-            res                 Resultant values
+            sampling_points (ndarray): Points sampled
+            res (ndarray): Objective function evaluations at `sampling_points`
         '''
 
         if self.completed:
@@ -112,8 +127,10 @@ class GridOptimizer(IterableOptimizer):
 
     def iter(self, print_status=False):
         '''
-        Returns an generator which can be run to
-        perform end-to-end optimization
+        Generator for end-to-end optimization
+
+        Yields:
+            iter_result (dict): Iteration tracking information
         '''
 
         while not self.completed:
@@ -148,12 +165,16 @@ def get_default_tms_optimizer(f, locdim, rotdim):
     placed on CPU resources
 
     Arguments:
-        f           FieldFunc objective function
-        locdim      Number of spatial positions to evaluate along the x/y
-                    dimension. The total number of spatial positions sampled
-                    will be locdim * locdim
-        rotdim      Number of orientations to sample. The range of orientations
-                    sampled will be constrained to [0, 180]
+        f (fieldopt.objective.FieldFunc): FieldFunc objective function
+        locdim (int): Number of spatial positions to evaluate along
+            the :math:`(x,y)` dimension. The total number of spatial
+            positions sampled will be `locdim * locdim`
+        rotdim (int): Number of orientations to sample.
+            The range of orientations sampled will be constrained to [0, 180]
+
+    Returns:
+        optimizer (fieldopt.optimization.grid.GridOptimizer):
+            Configured optimizer
 
     '''
 
