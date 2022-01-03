@@ -41,21 +41,19 @@ RUN	pip install -f https://github.com/simnibs/simnibs/releases/tag/v3.1.2 simnib
 	&& pip install future \
 	&& cd /Cornell-MOE \
 	&& pip install -r requirements.txt \
-	&& python ./setup.py install \
+	&& pip install . \
 	&& pip install jupyter>=6.1.5 numba matplotlib \
 	docopt sklearn emcee==2.2.1 nilearn \
 	pythreejs wrapt \
-	https://github.com/skoch9/meshplot/archive/0.4.0.tar.gz
+	https://github.com/skoch9/meshplot/archive/0.4.0.tar.gz \
+	gmsh==4.9.2
 
-ARG	BRANCH="master"
+ARG	COMMIT_SHA=""
 ARG	PIP_FLAGS
-ADD	https://api.github.com/repos/jerdra/fieldopt/git/refs/heads/${BRANCH} version.json
-RUN	git clone -b ${BRANCH} https://github.com/jerdra/fieldopt.git \
+RUN	git clone https://github.com/jerdra/fieldopt.git \
 	&& cd fieldopt \
+	&& git checkout ${COMMIT_SHA} \
 	&& pip install -r requirements.txt \
-	&& pip install ${PIP_FLAGS} .[all] \
-	&& pip install --upgrade gmsh
-
-ENV	PYTHONPATH=$PYTHONPATH:/Cornell-MOE
+	&& pip install ${PIP_FLAGS} .[all]
 
 ENTRYPOINT /bin/bash
