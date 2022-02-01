@@ -37,16 +37,20 @@ ENV	MOE_CC_PATH=/usr/bin/gcc \
 # Force emcee version as newer ones have issues w/linearly dependent walkers
 # Set up Field Optimization package
 
-RUN	pip install -f https://github.com/simnibs/simnibs/releases/tag/v3.1.2 simnibs \
-	&& pip install future \
+# MOE/SimNIBS require specialized installs
+RUN pip install --upgrade pip
+COPY requirements.txt .
+RUN cat requirements.txt | grep -v simnibs | grep -v MOE | xargs pip install
+
+ARG SIMNIBS_VER="v3.2.5"
+RUN pip install -f https://github.com/simnibs/simnibs/releases/tag/${SIMNIBS_VER} simnibs
+
+RUN pip install future \
 	&& cd /Cornell-MOE \
 	&& pip install -r requirements.txt \
-	&& pip install . \
-	&& pip install jupyter>=6.1.5 numba matplotlib \
-	docopt sklearn emcee==2.2.1 nilearn \
-	pythreejs wrapt \
-	https://github.com/skoch9/meshplot/archive/0.4.0.tar.gz \
-	gmsh==4.9.2
+	&& pip install . 
+
+RUN pip install https://github.com/skoch9/meshplot/archive/0.4.0.tar.gz
 
 ARG	COMMIT_SHA=""
 ARG	PIP_FLAGS
