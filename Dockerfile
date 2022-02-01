@@ -57,7 +57,6 @@ ARG	PIP_FLAGS
 RUN	git clone https://github.com/jerdra/fieldopt.git \
 	&& cd fieldopt \
 	&& git checkout ${COMMIT_SHA} \
-	&& pip install -r requirements.txt \
 	&& pip install ${PIP_FLAGS} .[all]
 
 ENTRYPOINT /bin/bash
