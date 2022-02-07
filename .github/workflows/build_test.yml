@@ -20,7 +20,7 @@ jobs:
         run: |
           # Generate documentation
           docker run \
-           -v $GITHUB_WORKSPACE/docs/:/source 
+           -v $GITHUB_WORKSPACE/docs/:/source \
            -v $GITHUB_WORKSPACE/docs/_build:/build \
             local:latest "sphinx-build -M html \
             /source /build && ls /build"
