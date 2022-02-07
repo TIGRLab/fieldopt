@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fieldopt.geometry package &mdash; FieldOpt  documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> FieldOpt
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">fieldopt.geometry package</a><ul>
+<li><a class="reference internal" href="#submodules">Submodules</a></li>
+<li><a class="reference internal" href="#module-fieldopt.geometry.domains">fieldopt.geometry.domains module</a></li>
+<li><a class="reference internal" href="#module-fieldopt.geometry.geometry">fieldopt.geometry.geometry module</a></li>
+<li><a class="reference internal" href="#module-fieldopt.geometry.mesh">fieldopt.geometry.mesh module</a></li>
+<li><a class="reference internal" href="#module-fieldopt.geometry.mesh_wrapper">fieldopt.geometry.mesh_wrapper module</a></li>
+<li><a class="reference internal" href="#module-fieldopt.geometry">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">FieldOpt</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>fieldopt.geometry package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/fieldopt.geometry.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="fieldopt-geometry-package">
+<h1>fieldopt.geometry package<a class="headerlink" href="#fieldopt-geometry-package" title="Permalink to this headline"></a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline"></a></h2>
+</section>
+<section id="module-fieldopt.geometry.domains">
+<span id="fieldopt-geometry-domains-module"></span><h2>fieldopt.geometry.domains module<a class="headerlink" href="#module-fieldopt.geometry.domains" title="Permalink to this headline"></a></h2>
+<p>Sampling domains for TMS field optimization</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="fieldopt.geometry.domains.QuadraticDomain">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.domains.</span></span><span class="sig-name descname"><span class="pre">QuadraticDomain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mesh</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">span</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">35</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_span</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/domains.html#QuadraticDomain"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.domains.QuadraticDomain" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="fieldopt.geometry.domains.QuadraticDomain.place_coil">
+<span class="sig-name descname"><span class="pre">place_coil</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mesh</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">theta</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flip_norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/domains.html#QuadraticDomain.place_coil"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.domains.QuadraticDomain.place_coil" title="Permalink to this definition"></a></dt>
+<dd><p>Place coil on mesh surface</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mesh</strong> – <cite>fieldopt.geometry.mesh_wrapper.HeadModel</cite> object</p></li>
+<li><p><strong>x</strong> (<em>float</em>) – x coordinate of domain</p></li>
+<li><p><strong>y</strong> (<em>float</em>) – y coordinate of domain</p></li>
+<li><p><strong>theta</strong> (<em>float</em>) – Coil orientation</p></li>
+<li><p><strong>flip_norm</strong> (<em>bool</em>) – Whether the normal should be flipped
+when constructing the orientation matrix</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>matsimnibs</strong> (<em>ndarray</em>) – A matsimnibs orientation matrix</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-fieldopt.geometry.geometry">
+<span id="fieldopt-geometry-geometry-module"></span><h2>fieldopt.geometry.geometry module<a class="headerlink" href="#module-fieldopt.geometry.geometry" title="Permalink to this headline"></a></h2>
+<p>General geometry routines for mesh manipulation</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.geometry.geometry.affine">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.geometry.</span></span><span class="sig-name descname"><span class="pre">affine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/geometry.html#affine"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.geometry.affine" title="Permalink to this definition"></a></dt>
+<dd><p>Apply affine transformation A to vector set x.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>A</strong> (<em>ndarray</em>) – (4,4) Affine matrix</p></li>
+<li><p><strong>x</strong> (<em>ndarray</em>) – (3,N) Set of 3D coordinate vectors</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>b</strong> (<em>ndarray</em>) – Transformed coordinates :math: <cite>Ax</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.geometry.geometry.compute_parameteric_coordinates">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.geometry.</span></span><span class="sig-name descname"><span class="pre">compute_parameteric_coordinates</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">w</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/geometry.html#compute_parameteric_coordinates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.geometry.compute_parameteric_coordinates" title="Permalink to this definition"></a></dt>
+<dd><p>Given two coordinate axes <span class="math notranslate nohighlight">\((u,v)\)</span> find <span class="math notranslate nohighlight">\((s,t)\)</span>, given that:</p>
+<p><span class="math notranslate nohighlight">\(w = su + tv\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>u</strong> (<em>ndarray</em>) – (3,) Axis of parameteric coordinate system</p></li>
+<li><p><strong>v</strong> (<em>ndarray</em>) – (3,) Secondary axis of parameteric coordinate system</p></li>
+<li><p><strong>w</strong> (<em>ndarray</em>) – (3,) Point lying on plane spanned by <span class="math notranslate nohighlight">\((u,v)\)</span></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>s</strong> (<em>float</em>) – Parameteric coordinate for axis spanned by <span class="math notranslate nohighlight">\(u\)</span></p></li>
+<li><p><strong>t</strong> (<em>float</em>) – Parameteric coordinate for axis spanned by <span class="math notranslate nohighlight">\(v\)</span></p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.geometry.geometry.compute_principal_dir">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.geometry.</span></span><span class="sig-name descname"><span class="pre">compute_principal_dir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">C</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/geometry.html#compute_principal_dir"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.geometry.compute_principal_dir" title="Permalink to this definition"></a></dt>
+<dd><p>Compute the principal direction of a quadratic surface <span class="math notranslate nohighlight">\(S\)</span> of form:</p>
+<p><span class="math notranslate nohighlight">\(S: f(x,y) = a + bx + cy + dxy + ex^2 + fy^2\)</span></p>
+<p>Using the second fundamental form basis matrix eigendecomposition method</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>float</em>) – <span class="math notranslate nohighlight">\(x\)</span> coordinate on parameterized surface <span class="math notranslate nohighlight">\(S\)</span></p></li>
+<li><p><strong>y</strong> (<em>float</em>) – <span class="math notranslate nohighlight">\(y\)</span> coordinate on parameterized surface <span class="math notranslate nohighlight">\(S\)</span></p></li>
+<li><p><strong>C</strong> (<em>ndarray</em>) – (6,) surface coefficients</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>V</strong> (<em>ndarray</em>) – (2,2) Principal component column vectors</p></li>
+<li><p><strong>n</strong> (<em>ndarray</em>) – (3,) normal to surface S at point (x,y)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.geometry.geometry.define_coil_orientation">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.geometry.</span></span><span class="sig-name descname"><span class="pre">define_coil_orientation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rot</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/geometry.html#define_coil_orientation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.geometry.define_coil_orientation" title="Permalink to this definition"></a></dt>
+<dd><p>Construct the coil orientation matrix (matsimnibs) to be used by simnibs</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>loc</strong> (<em>ndarray</em>) – (3,) Centre coordinates of coil</p></li>
+<li><p><strong>rot</strong> (<em>ndarray</em>) – Orientation vector of coil</p></li>
+<li><p><strong>n</strong> (<em>ndarray</em>) – Coil normal vector</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>matsimnibs</strong> (<em>ndarray</em>) – (4,4) matsimnibs matrix with column vectors
+[x, y, z, t]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.geometry.geometry.interpolate_angle">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.geometry.</span></span><span class="sig-name descname"><span class="pre">interpolate_angle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">l</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">90.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/geometry.html#interpolate_angle"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.geometry.interpolate_angle" title="Permalink to this definition"></a></dt>
+<dd><p>Interpolate between two orthogonal vectors <span class="math notranslate nohighlight">\(u\)</span> and <span class="math notranslate nohighlight">\(v\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>u</strong> (<em>ndarray</em>) – (3,) vector</p></li>
+<li><p><strong>v</strong> (<em>ndarray</em>) – (3,) vector orthogonal to <span class="math notranslate nohighlight">\(u\)</span></p></li>
+<li><p><strong>t</strong> (<em>float</em>) – Interpolation value</p></li>
+<li><p><strong>l</strong> (<em>float</em>) – Period of rotation</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>ori</strong> (<em>ndarray</em>) – (3,) vector in between <span class="math notranslate nohighlight">\(u\)</span> and <span class="math notranslate nohighlight">\(v\)</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.geometry.geometry.quad_fit">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.geometry.</span></span><span class="sig-name descname"><span class="pre">quad_fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">b</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/geometry.html#quad_fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.geometry.quad_fit" title="Permalink to this definition"></a></dt>
+<dd><p>Perform quadratic surface fitting of form:</p>
+<p><span class="math notranslate nohighlight">\(f(x,y) = a + bx + cy + dxy + ex^2 + fy^2\)</span></p>
+<p>By finding the least squares solution of <span class="math notranslate nohighlight">\(Ax = b\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>ndarray</em>) – (P, 2) P set of <span class="math notranslate nohighlight">\((x,y)\)</span> points</p></li>
+<li><p><strong>b</strong> (<em>ndarray</em>) – (P,) set of <span class="math notranslate nohighlight">\(f(x,y)\)</span> points</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.geometry.geometry.quadratic_surf">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.geometry.</span></span><span class="sig-name descname"><span class="pre">quadratic_surf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">C</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/geometry.html#quadratic_surf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.geometry.quadratic_surf" title="Permalink to this definition"></a></dt>
+<dd><p>Project parameteric coordinates <span class="math notranslate nohighlight">\((x,y)\)</span> onto a quadratic surface
+<span class="math notranslate nohighlight">\(S\)</span> defined as:</p>
+<p><span class="math notranslate nohighlight">\(f(x,y) = a + bx + cy + dxy + ex^2 + fy^2\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>float</em>) – <span class="math notranslate nohighlight">\(x\)</span> coordinate</p></li>
+<li><p><strong>y</strong> (<em>float</em>) – <span class="math notranslate nohighlight">\(y\)</span> coordinate</p></li>
+<li><p><strong>C</strong> (<em>ndarray</em>) – (6,) surface coefficients</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>:math:`f</strong> (<em>x,y</em>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.geometry.geometry.quadratic_surf_position">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.geometry.</span></span><span class="sig-name descname"><span class="pre">quadratic_surf_position</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">C</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/geometry.html#quadratic_surf_position"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.geometry.quadratic_surf_position" title="Permalink to this definition"></a></dt>
+<dd><p>For some mesh-based surface <span class="math notranslate nohighlight">\(S\)</span>,
+define a parameterization using a quadratic fit:</p>
+<p><span class="math notranslate nohighlight">\(f(x,y) = a + bx + cy + dxy + ex^2 + fy^2\)</span></p>
+<p>Compute the mapping from <span class="math notranslate nohighlight">\((x,y) \to (x,y,f(x,y))\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>float</em>) – <span class="math notranslate nohighlight">\(x\)</span> coordinate</p></li>
+<li><p><strong>y</strong> (<em>float</em>) – <span class="math notranslate nohighlight">\(y\)</span> coordinate</p></li>
+<li><p><strong>C</strong> (<em>ndarray</em>) – (6,) surface coefficients</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>(3,) :math:`</strong> (<em>x,y,f(x,y)</em>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.geometry.geometry.quadratic_surf_rotation">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.geometry.</span></span><span class="sig-name descname"><span class="pre">quadratic_surf_rotation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">C</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/geometry.html#quadratic_surf_rotation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.geometry.quadratic_surf_rotation" title="Permalink to this definition"></a></dt>
+<dd><p>Construct an orientation vector on a quadratic surface defined by
+coefficients <span class="math notranslate nohighlight">\(C\)</span></p>
+<p>For some mesh-based surface, define a least squares quadratic
+surface parameterization <span class="math notranslate nohighlight">\(S\)</span>:</p>
+<p><span class="math notranslate nohighlight">\(f(x,y) = a + bx + cy + dxy + ex^2 + fy^2\)</span></p>
+<p><span class="math notranslate nohighlight">\((x,y)\)</span> are therefore parameteric coordinates that are projected
+to the surface <span class="math notranslate nohighlight">\(S\)</span>. Following projection a local orientation is
+defined by interpolating the principal directions
+<span class="math notranslate nohighlight">\((u,v)\)</span> by <span class="math notranslate nohighlight">\(t\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>float</em>) – <span class="math notranslate nohighlight">\(x\)</span> coordinate</p></li>
+<li><p><strong>y</strong> (<em>float</em>) – <span class="math notranslate nohighlight">\(y\)</span> coordinate</p></li>
+<li><p><strong>t</strong> (<em>float</em>) – Interpolation amount between principal directions
+<span class="math notranslate nohighlight">\((u,v)\)</span>. Period of <span class="math notranslate nohighlight">\(T=90\)</span> is used for
+interpolation.</p></li>
+<li><p><strong>C</strong> (<em>ndarray</em>) – (6,) surface coefficients</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>(3,) :math:`</strong> (<em>x,y,z</em>)</p></li>
+<li><p><strong>(3,) normal vector</strong></p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.geometry.geometry.rotate_vec2vec">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.geometry.</span></span><span class="sig-name descname"><span class="pre">rotate_vec2vec</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">v1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/geometry.html#rotate_vec2vec"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.geometry.rotate_vec2vec" title="Permalink to this definition"></a></dt>
+<dd><p>Rotate vector v1 onto v2 and return the transformation matrix R that
+achieves this</p>
+<p>Compute transformation matrix <span class="math notranslate nohighlight">\(R\)</span> that rotates a vector
+<span class="math notranslate nohighlight">\(v1\)</span> onto <span class="math notranslate nohighlight">\(v2\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>v1</strong> (<em>ndarray</em>) – (3,) starting vector</p></li>
+<li><p><strong>v2</strong> (<em>ndarray</em>) – (3,) final vector to rotate to</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>R</strong> (<em>ndarray</em>) – (3,3) rotation matrix</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.geometry.geometry.skew">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.geometry.</span></span><span class="sig-name descname"><span class="pre">skew</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vector</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/geometry.html#skew"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.geometry.skew" title="Permalink to this definition"></a></dt>
+<dd><p>This function returns a numpy array with the skew symmetric cross product
+matrix for vector. The skew symmetric cross product matrix is defined
+such that:</p>
+<p><cite>np.cross(a, b) = np.dot(skew(a), b)</cite></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>vector</strong> (<em>ndarray</em>) – An array like vector to create the skew
+symmetric cross product matrix for</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>skew</strong> (<em>ndarray</em>) – A numpy array of the skew symmetric cross
+product vector</p>
+</dd>
+</dl>
+<p class="rubric">References</p>
+<p><a class="reference external" href="https://stackoverflow.com/questions/36915774/form-numpy-array-from-possible-numpy-array">https://stackoverflow.com/questions/36915774/form-numpy-array-from-possible-numpy-array</a></p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.geometry.geometry.unitize_arr">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.geometry.</span></span><span class="sig-name descname"><span class="pre">unitize_arr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/geometry.html#unitize_arr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.geometry.unitize_arr" title="Permalink to this definition"></a></dt>
+<dd><p>Normalize array row-wise</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>arr</strong> (<em>ndarray</em>) – (n,p) array to normalize</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>normed</strong> (<em>ndarray</em>) – (n,p) array where each row is unit length</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-fieldopt.geometry.mesh">
+<span id="fieldopt-geometry-mesh-module"></span><h2>fieldopt.geometry.mesh module<a class="headerlink" href="#module-fieldopt.geometry.mesh" title="Permalink to this headline"></a></h2>
+<p>Gmsh mesh manipulation routines</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.geometry.mesh.closest_point2surf">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.mesh.</span></span><span class="sig-name descname"><span class="pre">closest_point2surf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/mesh.html#closest_point2surf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.mesh.closest_point2surf" title="Permalink to this definition"></a></dt>
+<dd><p>Get closest point <span class="math notranslate nohighlight">\(c\)</span> in coords to <span class="math notranslate nohighlight">\(p\)</span>
+by minimizing the euclidean distance metric</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>p</strong> (<em>ndarray</em>) – (3,) point</p></li>
+<li><p><strong>coords</strong> (<em>ndarray</em>) – (N, 3) set of coordinates</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>(3,) coordinate :math:`c` closest to :math:`p` in `coords`</strong></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.geometry.mesh.get_normals">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.mesh.</span></span><span class="sig-name descname"><span class="pre">get_normals</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point_tags</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">all_tags</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trigs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/mesh.html#get_normals"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.mesh.get_normals" title="Permalink to this definition"></a></dt>
+<dd><p>Get averaged local normal for a contiguous subset of a surface mesh</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>point_tags</strong> (<em>ndarray</em>) – (K,) Subset of contiguous Node ids
+to use for computing local normal</p></li>
+<li><p><strong>all_tags</strong> (<em>ndarray</em>) – (N,) The set of all Node ids belonging
+to the mesh</p></li>
+<li><p><strong>coords</strong> (<em>ndarray</em>) – (N,3) Coordinates of nodes in <cite>all_tags</cite></p></li>
+<li><p><strong>trigs</strong> (<em>ndarray</em>) – (P,3) Triangle face array</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>(3,) normal vector of patch defined by `point_tags`</strong></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.geometry.mesh.get_relevant_triangles">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.mesh.</span></span><span class="sig-name descname"><span class="pre">get_relevant_triangles</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">verts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">triangles</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/mesh.html#get_relevant_triangles"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.mesh.get_relevant_triangles" title="Permalink to this definition"></a></dt>
+<dd><p>Get set of all triangles in <cite>triangles</cite>
+that contain at least 1 vertex in <cite>verts</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>verts</strong> (<em>ndarray</em>) – (N,) array of vertex IDs</p></li>
+<li><p><strong>triangles</strong> (<em>ndarray</em>) – (P,3) array of triangle vertices</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>t_arr</strong> (<em>ndarray</em>) – (P,) boolean array. True if triangle contains at least
+one vertex from <a href="#id1"><span class="problematic" id="id2">`</span></a>verts</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.geometry.mesh.get_subset_triangles">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.mesh.</span></span><span class="sig-name descname"><span class="pre">get_subset_triangles</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">verts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">triangles</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/mesh.html#get_subset_triangles"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.mesh.get_subset_triangles" title="Permalink to this definition"></a></dt>
+<dd><p>Get all triangles in <cite>triangles</cite> that have all their vertices
+listed in <cite>verts</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>verts</strong> (<em>ndarray</em>) – (N,) array of vertex IDs</p></li>
+<li><p><strong>triangles</strong> (<em>ndarray</em>) – (P,3) triangle face array</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Output:</dt><dd><dl class="simple">
+<dt>(P,) boolean array indicating triangles where all vertices</dt><dd><p>are found in <cite>verts</cite></p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.geometry.mesh.load_gmsh_elems">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.mesh.</span></span><span class="sig-name descname"><span class="pre">load_gmsh_elems</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gmshpath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">entity</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/mesh.html#load_gmsh_elems"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.mesh.load_gmsh_elems" title="Permalink to this definition"></a></dt>
+<dd><p>Load gmsh .msh file and load (elm_types, ids, node_maps)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>gmshpath</strong> (<em>str</em>) – Path to .msh file</p></li>
+<li><p><strong>entity</strong> (<em>tuple</em>) – (dim, tag) tuple identifying the entity
+to query</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>elm_types</strong> (<em>ndarray</em>) – (N,) Element type array
+(3=triangle, 4=tetrahedron)</p></li>
+<li><p><strong>ids</strong> (<em>ndarray</em>) – (N, P) Element ID array shifted to 0-based indexing</p></li>
+<li><p><strong>node_map</strong> (<em>ndarray</em>) – (N, DIM) Vertex IDs for element.
+DIM=3 if triangles. DIM=4 if tetrahedrons.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.geometry.mesh.load_gmsh_nodes">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.mesh.</span></span><span class="sig-name descname"><span class="pre">load_gmsh_nodes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gmshpath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">entity</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/mesh.html#load_gmsh_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.mesh.load_gmsh_nodes" title="Permalink to this definition"></a></dt>
+<dd><p>Load gmsh .msh file and load (nodes, coordinates, parameters)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>gmshpath</strong> (<em>str</em>) – Path to .msh file</p></li>
+<li><p><strong>entity</strong> (<em>tuple</em>) – (dim, tag) tuple identifying the entity
+to query</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>nodes</strong> (<em>ndarray</em>) – (N,) Node ID array shifted to 0-based indexing</p></li>
+<li><p><strong>coords</strong> (<em>ndarray</em>) – (N, 3) node coordinate array</p></li>
+<li><p><strong>parameters</strong> (<em>ndarray</em>) – (N, P) node parameter array</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.geometry.mesh.ray_interception">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.mesh.</span></span><span class="sig-name descname"><span class="pre">ray_interception</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pn</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trigs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epsilon</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/mesh.html#ray_interception"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.mesh.ray_interception" title="Permalink to this definition"></a></dt>
+<dd><p>Compute interception point and distance of ray to mesh.
+Only the first collision is returned.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pn</strong> (<em>ndarray</em>) – (3,) starting point of ray</p></li>
+<li><p><strong>pf</strong> (<em>ndarray</em>) – (3,) far point of ray</p></li>
+<li><p><strong>coords</strong> (<em>ndarray</em>) – (N,3) Vertex coordinate array</p></li>
+<li><p><strong>trigs</strong> (<em>ndarray</em>) – (P,3) Triangle face array</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>p_I</strong> (<em>ndarray</em>) – (3,) Intersection point</p></li>
+<li><p><strong>ray_len</strong> (<em>float</em>) – Euclidean length of line from <cite>pn</cite> to <cite>p_I</cite></p></li>
+<li><p><strong>min_trig</strong> (<em>int</em>) – Index of triangle that first collided with ray</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">References</p>
+<p><a class="reference external" href="http://geomalgorithms.com/a06-_intersect-2.html">http://geomalgorithms.com/a06-_intersect-2.html</a></p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.geometry.mesh.vertex_normals">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.mesh.</span></span><span class="sig-name descname"><span class="pre">vertex_normals</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trigs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/mesh.html#vertex_normals"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.mesh.vertex_normals" title="Permalink to this definition"></a></dt>
+<dd><p>Compute vertex normals</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>trigs</strong> (<em>ndarray</em>) – (P,3) Normalized triangle face array (see note)</p></li>
+<li><p><strong>coords</strong> (<em>ndarray</em>) – (N,3) Array of vertex coordinates</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Output:</dt><dd><p>(K,3) vertex normals</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><cite>trigs</cite> must be normalized such that <cite>max(trigs) = N-1</cite>. So
+that each element value in <cite>trigs</cite> can be used to directly
+index a row in <cite>coords</cite></p>
+</div>
+</dd></dl>
+
+</section>
+<section id="module-fieldopt.geometry.mesh_wrapper">
+<span id="fieldopt-geometry-mesh-wrapper-module"></span><h2>fieldopt.geometry.mesh_wrapper module<a class="headerlink" href="#module-fieldopt.geometry.mesh_wrapper" title="Permalink to this headline"></a></h2>
+<p>Data class for operating with simnibs.msh.mesh_io.Msh
+objects more concisely for running TMS simulation experiments</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="fieldopt.geometry.mesh_wrapper.HeadModel">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fieldopt.geometry.mesh_wrapper.</span></span><span class="sig-name descname"><span class="pre">HeadModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mesh</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">head_entity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(2,</span> <span class="pre">5)</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/mesh_wrapper.html#HeadModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.mesh_wrapper.HeadModel" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Convenience wrapper for <cite>simnibs.msh.Msh</cite> with
+additional utility methods</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="fieldopt.geometry.mesh_wrapper.HeadModel.get_tet_ids">
+<span class="sig-name descname"><span class="pre">get_tet_ids</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/mesh_wrapper.html#HeadModel.get_tet_ids"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.mesh_wrapper.HeadModel.get_tet_ids" title="Permalink to this definition"></a></dt>
+<dd><p>Get list of element IDs belonging to <cite>tag</cite></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tag</strong> (<em>int</em>) – Entity tag to query for</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>(T,) array of element IDs belonging to `tag`</strong></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fieldopt.geometry.mesh_wrapper.HeadModel.intercept">
+<span class="sig-name descname"><span class="pre">intercept</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">entity</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/geometry/mesh_wrapper.html#HeadModel.intercept"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.geometry.mesh_wrapper.HeadModel.intercept" title="Permalink to this definition"></a></dt>
+<dd><p>Compute interception distance of a ray defined by <span class="math notranslate nohighlight">\((p0, p1)\)</span>
+to a mesh entity defined by <cite>entity</cite></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>p0</strong> (<em>ndarray</em>) – (3,) Ray starting point</p></li>
+<li><p><strong>p1</strong> (<em>ndarray</em>) – (3,) Ray end point</p></li>
+<li><p><strong>entity</strong> (<em>tuple</em>) – (tag, elm) entity to compute intersection with</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>(3,) interception point</strong></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-fieldopt.geometry">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-fieldopt.geometry" title="Permalink to this headline"></a></h2>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Jerrold Jeyachandra.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

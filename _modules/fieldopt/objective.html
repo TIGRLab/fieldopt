@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fieldopt.objective &mdash; FieldOpt  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> FieldOpt
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">FieldOpt</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      <li>fieldopt.objective</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for fieldopt.objective</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">Objective function for evaluating TMS field simulations</span>
+<span class="sd">&#39;&#39;&#39;</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">multiprocessing</span> <span class="k">as</span> <span class="nn">mp</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">mkl</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sparse</span>
+
+<span class="kn">from</span> <span class="nn">simnibs</span> <span class="kn">import</span> <span class="n">cond</span>
+<span class="kn">from</span> <span class="nn">simnibs.simulation.fem</span> <span class="kn">import</span> <span class="n">FEMSystem</span><span class="p">,</span> <span class="n">grad_matrix</span><span class="p">,</span> <span class="n">calc_fields</span>
+<span class="kn">from</span> <span class="nn">simnibs.msh</span> <span class="kn">import</span> <span class="n">mesh_io</span>
+<span class="kn">import</span> <span class="nn">simnibs.simulation.coil_numpy</span> <span class="k">as</span> <span class="nn">coil_lib</span>
+<span class="kn">from</span> <span class="nn">fieldopt.solver_wrapper</span> <span class="kn">import</span> <span class="n">get_solver</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="n">FIELD_ENTITY</span> <span class="o">=</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">PIAL_ENTITY</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1002</span><span class="p">)</span>
+<span class="n">FIELDS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;e&#39;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="FieldFunc"><a class="viewcode-back" href="../../fieldopt.html#fieldopt.objective.FieldFunc">[docs]</a><span class="k">class</span> <span class="nc">FieldFunc</span><span class="p">():</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    TMS simulation objective function</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">head_model</span><span class="p">,</span>
+                 <span class="n">sampling_domain</span><span class="p">,</span>
+                 <span class="n">coil</span><span class="p">,</span>
+                 <span class="n">tet_weights</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">didt</span><span class="o">=</span><span class="mf">1e6</span><span class="p">,</span>
+                 <span class="n">nworkers</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                 <span class="n">nthreads</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">solver</span><span class="o">=</span><span class="s1">&#39;pardiso&#39;</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Arguments:</span>
+<span class="sd">            mesh: simnibs.Msh.mesh_io.Msh object</span>
+<span class="sd">            sampling_domain: fieldopt.geometry.sampler Domain class</span>
+<span class="sd">            tet_weights (ndarray): (T,) Weighting scores for each tetrahedron</span>
+<span class="sd">            coil (str): TMS coil file (either dA/dt volume or</span>
+<span class="sd">                coil geometry)</span>
+<span class="sd">            didt (float): Intensity of stimulation</span>
+<span class="sd">            nworkers (int): Number of workers to spawn for simulations</span>
+<span class="sd">            nthreads (int): Maximum number of physical cores</span>
+<span class="sd">                for solver to use [Default: use all]</span>
+<span class="sd">            solver (str): Solver to use to compute FEM solution</span>
+<span class="sd">                [Default: pardiso]. See fieldopt.solvers for list of</span>
+<span class="sd">                available solvers</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">head_model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">domain</span> <span class="o">=</span> <span class="n">sampling_domain</span>
+
+        <span class="k">if</span> <span class="n">tet_weights</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">tw</span> <span class="o">=</span> <span class="n">tet_weights</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">tet_weights</span><span class="p">)]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No weights provided for score function&quot;</span>
+                           <span class="s2">&quot; setting to 0s!&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">tw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">head_model</span><span class="o">.</span><span class="n">get_tet_ids</span><span class="p">(</span><span class="mi">2</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="c1"># Control for coil file-type and SimNIBS changing convention</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">normflip</span> <span class="o">=</span> <span class="n">coil</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.nii.gz&#39;</span><span class="p">)</span>
+
+        <span class="n">roi</span> <span class="o">=</span> <span class="n">head_model</span><span class="o">.</span><span class="n">get_tet_ids</span><span class="p">(</span><span class="mi">2</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">tet_weights</span><span class="p">)]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">simulator</span> <span class="o">=</span> <span class="n">_Simulator</span><span class="p">(</span><span class="n">head_model</span><span class="p">,</span> <span class="n">solver</span><span class="p">,</span> <span class="n">didt</span><span class="p">,</span> <span class="n">coil</span><span class="p">,</span> <span class="n">roi</span><span class="p">,</span>
+                                    <span class="n">nworkers</span><span class="p">,</span> <span class="n">nthreads</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">volumes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">elements_volumes_and_areas</span><span class="p">()</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="n">roi</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        print(FieldFunc)</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Mesh:&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">mesh</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s1">&#39;&#39;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">mesh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Get underlying simnibs.msh.Msh object</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">mesh</span>
+
+<div class="viewcode-block" id="FieldFunc.place_coils"><a class="viewcode-back" href="../../fieldopt.html#fieldopt.objective.FieldFunc.place_coils">[docs]</a>    <span class="k">def</span> <span class="nf">place_coils</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_list</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Place multiple coil locations on parameteric surface defined</span>
+<span class="sd">        by objective funtion domain</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            input_list (List[tuple(float,float,float]): (N,3) iterable</span>
+<span class="sd">                containing (x,y,theta) entries</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of SimNIBS matsimnibs matrices of length N</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Transforming inputs...&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="o">.</span><span class="n">place_coil</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="o">*</span><span class="n">i</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">normflip</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">input_list</span>
+        <span class="p">]</span></div>
+
+<div class="viewcode-block" id="FieldFunc.evaluate"><a class="viewcode-back" href="../../fieldopt.html#fieldopt.objective.FieldFunc.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_list</span><span class="p">,</span> <span class="n">out_basename</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Evaluate the TMS objective function on a list of input</span>
+<span class="sd">        coordinates</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            input_list (List[tuple(float,float,float]): (N,3) iterable</span>
+<span class="sd">                containing (x,y,theta) entries</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            (N,) array of total E-field magnitudes over ROI for each</span>
+<span class="sd">                input position</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="n">matsimnibs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">place_coils</span><span class="p">(</span><span class="n">input_list</span><span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Running simulations...&#39;</span><span class="p">)</span>
+        <span class="n">E</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">simulator</span><span class="o">.</span><span class="n">run_simulation</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="p">,</span> <span class="n">matsimnibs</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Successfully completed simulations!&#39;</span><span class="p">)</span>
+        <span class="n">scores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">tw</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span>
+                  <span class="bp">self</span><span class="o">.</span><span class="n">volumes</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">scores</span></div>
+
+<div class="viewcode-block" id="FieldFunc.visualize_evaluate"><a class="viewcode-back" href="../../fieldopt.html#fieldopt.objective.FieldFunc.visualize_evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">visualize_evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                           <span class="n">x</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                           <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                           <span class="n">theta</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                           <span class="n">matsimnibs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                           <span class="n">out_sim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                           <span class="n">out_geo</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                           <span class="n">fields</span><span class="o">=</span><span class="n">FIELDS</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Generate a visualization of a TMS simulation on a given</span>
+<span class="sd">        coordinate</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            x (float): Sampling domain x</span>
+<span class="sd">            y (float): Sampling domain y</span>
+<span class="sd">            theta (float): Sampling domain rotation angle</span>
+<span class="sd">            matsimnibs (ndarray): (4,4) Matsimnibs matrix</span>
+<span class="sd">            out_sim (str): Output path for msh file</span>
+<span class="sd">            out_geo (str): Output path for coil position file</span>
+<span class="sd">            fields (List[str]): Fields to include in visualization</span>
+<span class="sd">                [Default: normE]</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            If both :math:`(x,y,theta)` and `matsimnibs` are provided,</span>
+<span class="sd">                the former takes precedence.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError if either a full :math:`(x,y,theta)` set of inputs</span>
+<span class="sd">                or `matsimnibs` is not provided</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="k">if</span> <span class="nb">all</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">theta</span><span class="p">]):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using domain input coordinates&quot;</span><span class="p">)</span>
+            <span class="n">matsimnibs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">place_coils</span><span class="p">([[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">theta</span><span class="p">]])[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">matsimnibs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using provided matsimnibs matrix&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Missing x,y,theta coordinates or matsimnibs!&quot;</span><span class="p">)</span>
+
+        <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">simulator</span><span class="o">.</span><span class="n">run_full_simulation</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="p">,</span>
+                                                 <span class="n">matsimnibs</span><span class="p">,</span>
+                                                 <span class="n">fields</span><span class="o">=</span><span class="n">fields</span><span class="p">,</span>
+                                                 <span class="n">fn_geo</span><span class="o">=</span><span class="n">out_geo</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tw</span><span class="p">)[</span><span class="mi">0</span><span class="p">]):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Appending weightfunction to output&quot;</span><span class="p">)</span>
+            <span class="n">wf_field</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">elmdata</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+            <span class="n">wf_field</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">simulator</span><span class="o">.</span><span class="n">roi</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tw</span>
+            <span class="n">res</span><span class="o">.</span><span class="n">add_element_field</span><span class="p">(</span><span class="n">wf_field</span><span class="p">,</span> <span class="s1">&#39;weightfunction&#39;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Weightfunction was not set or is all&quot;</span>
+                           <span class="s2">&quot; zeros! Not displaying in final result&quot;</span><span class="p">)</span>
+
+        <span class="n">mesh_io</span><span class="o">.</span><span class="n">write_msh</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">out_sim</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Wrote msh into </span><span class="si">{</span><span class="n">out_sim</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="FieldFunc.get_coil2cortex_distance"><a class="viewcode-back" href="../../fieldopt.html#fieldopt.objective.FieldFunc.get_coil2cortex_distance">[docs]</a>    <span class="k">def</span> <span class="nf">get_coil2cortex_distance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coord</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Compute distance from coil to cortical surface mesh using</span>
+<span class="sd">        ray interception.</span>
+
+<span class="sd">        This function wraps: `simnibs.msh.Msh.intercept_ray`</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            input_coord (tuple): (x,y,theta) tuple describing input</span>
+<span class="sd">                coordinates on objective function domain</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            d (float): The distance between the proposed coil location</span>
+<span class="sd">                and the target ROI on the cortex</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="c1"># Compute the coil affine matrix</span>
+        <span class="n">coil_affine</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="o">.</span><span class="n">place_coil</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="o">*</span><span class="n">input_coord</span><span class="p">,</span>
+                                             <span class="bp">self</span><span class="o">.</span><span class="n">normflip</span><span class="p">)</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="n">coil_affine</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+        <span class="n">p0</span> <span class="o">=</span> <span class="n">coil_affine</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+        <span class="n">p1</span> <span class="o">=</span> <span class="n">p0</span> <span class="o">+</span> <span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="mi">200</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">intercept</span><span class="p">(</span><span class="n">p0</span><span class="p">,</span> <span class="n">p1</span><span class="p">,</span> <span class="n">PIAL_ENTITY</span><span class="p">))</span></div></div>
+
+
+<span class="k">class</span> <span class="nc">_Simulator</span><span class="p">:</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Class to manage simulation environment</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">model</span><span class="p">,</span>
+                 <span class="n">solver</span><span class="p">,</span>
+                 <span class="n">didt</span><span class="p">,</span>
+                 <span class="n">coil</span><span class="p">,</span>
+                 <span class="n">roi</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">num_workers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">nthreads</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Arguments:</span>
+<span class="sd">            model (fieldopt.geometry.mesh_wrapper.HeadModel): Head model</span>
+<span class="sd">            solver (str): Solver to use</span>
+<span class="sd">            didt (float): Stimulation dI/dt</span>
+<span class="sd">            coil (str): Path to TMS coil definition file</span>
+<span class="sd">            roi (ndarray): Element IDs to compute fields on</span>
+<span class="sd">            num_workers (int): Number of workers to use for setting up</span>
+<span class="sd">                stimulation problem</span>
+<span class="sd">            nthreads (int): Number of threads for solver to use</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">FEMSystem</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">solver</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cond</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">didt</span> <span class="o">=</span> <span class="n">didt</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coil</span> <span class="o">=</span> <span class="n">coil</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_workers</span> <span class="o">=</span> <span class="n">num_workers</span> <span class="k">if</span> <span class="n">num_workers</span> <span class="k">else</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">nthreads</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_num_threads</span><span class="p">(</span><span class="n">nthreads</span><span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Storing standard conductivity values...&#39;</span><span class="p">)</span>
+        <span class="n">condlist</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">value</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">cond</span><span class="o">.</span><span class="n">standard_cond</span><span class="p">()]</span>
+        <span class="n">conductivities</span> <span class="o">=</span> <span class="n">cond</span><span class="o">.</span><span class="n">cond2elmdata</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">mesh</span><span class="p">,</span> <span class="n">condlist</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cond</span> <span class="o">=</span> <span class="n">conductivities</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Successfully stored conductivity values...&#39;</span><span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initializing FEM problem&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">FEMSystem</span> <span class="o">=</span> <span class="n">FEMSystem</span><span class="o">.</span><span class="n">tms</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">mesh</span><span class="p">,</span> <span class="n">conductivities</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Completed FEM initialization&quot;</span><span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Computing mesh gradient&#39;</span><span class="p">)</span>
+        <span class="n">D</span> <span class="o">=</span> <span class="n">grad_matrix</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">mesh</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">roi</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">roi</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_tet_ids</span><span class="p">(</span><span class="n">FIELD_ENTITY</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">D</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span><span class="o">.</span><span class="n">tocsc</span><span class="p">()[</span><span class="n">roi</span><span class="p">]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">D</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">roi</span> <span class="o">=</span> <span class="n">roi</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Computing A matrix of AX=B&quot;</span><span class="p">)</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">sparse</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">FEMSystem</span><span class="o">.</span><span class="n">A</span><span class="p">)</span>
+        <span class="n">A</span><span class="o">.</span><span class="n">sort_indices</span><span class="p">()</span>
+        <span class="n">dof_map</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">FEMSystem</span><span class="o">.</span><span class="n">dof_map</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">FEMSystem</span><span class="o">.</span><span class="n">dirichlet</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">A</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">FEMSystem</span><span class="o">.</span><span class="n">dirichlet</span><span class="o">.</span><span class="n">apply_to_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">dof_map</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Preparing solver...&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">solver</span> <span class="o">=</span> <span class="n">get_solver</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">A</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Completed initialization successfully!&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;didt&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">didt</span>
+        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;coil&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coil</span>
+        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;FEMSystem&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">FEMSystem</span>
+        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;roi&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">roi</span>
+        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;D&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">D</span>
+        <span class="k">return</span> <span class="n">state</span>
+
+    <span class="k">def</span> <span class="nf">set_num_threads</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mkl_threads</span><span class="p">):</span>
+
+        <span class="k">if</span> <span class="n">mkl_threads</span> <span class="o">&gt;</span> <span class="n">mp</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span> <span class="o">//</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Maximum number of cores requested &quot;</span>
+                           <span class="s2">&quot; exceeds number of physical cores!&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Physical Cores: </span><span class="si">{</span><span class="n">mp</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Maximum usable cores: </span><span class="si">{</span><span class="n">mkl_threads</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Using all cores&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Setting maximum number of usable physical cores&quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;to </span><span class="si">{</span><span class="n">mkl_threads</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">mkl</span><span class="o">.</span><span class="n">set_dynamic</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">mkl</span><span class="o">.</span><span class="n">set_num_threads</span><span class="p">(</span><span class="n">mkl_threads</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">prepare_tms_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mesh</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">fn_geo</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Construct right hand side of the TMS matrix problem</span>
+
+<span class="sd">        Arguments;</span>
+<span class="sd">            mesh (simnibs.msh.mesh_io.Msh): Head model</span>
+<span class="sd">            m (ndarray): (4,4) Matsimnibs matrix</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            b (ndarray): (N,) RHS of simulation</span>
+<span class="sd">            dadt (ndarray): dA/dt for a given TMS coil position</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="n">dadt</span> <span class="o">=</span> <span class="n">coil_lib</span><span class="o">.</span><span class="n">set_up_tms</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span>
+                                   <span class="bp">self</span><span class="o">.</span><span class="n">coil</span><span class="p">,</span>
+                                   <span class="n">m</span><span class="p">,</span>
+                                   <span class="bp">self</span><span class="o">.</span><span class="n">didt</span><span class="p">,</span>
+                                   <span class="n">fn_geo</span><span class="o">=</span><span class="n">fn_geo</span><span class="p">)</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">FEMSystem</span><span class="o">.</span><span class="n">assemble_tms_rhs</span><span class="p">(</span><span class="n">dadt</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">b</span><span class="p">,</span> <span class="n">dadt</span>
+
+    <span class="k">def</span> <span class="nf">calc_E</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">dAdt</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Compute TMS electric fields from potentials</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            V (ndarray): TMS field potentials</span>
+<span class="sd">            dAdt (ndarray): Magnetic vector potential time derivative</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">E</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="o">-</span><span class="n">d</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">V</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1e3</span>
+        <span class="n">E</span> <span class="o">-=</span> <span class="n">dAdt</span>
+        <span class="k">return</span> <span class="n">E</span>
+
+    <span class="k">def</span> <span class="nf">solve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Solve FEM</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            B (ndarray): Right hand-side of TMS FEM equation</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            The solver stores the pre-computed A matrix of the left-hand</span>
+<span class="sd">            side</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="n">B</span><span class="p">,</span> <span class="n">dof_map</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">FEMSystem</span><span class="o">.</span><span class="n">dirichlet</span><span class="o">.</span><span class="n">apply_to_rhs</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">FEMSystem</span><span class="o">.</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">FEMSystem</span><span class="o">.</span><span class="n">dof_map</span><span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Solving FEM&quot;</span><span class="p">)</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">B</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Solved&quot;</span><span class="p">)</span>
+
+        <span class="n">X</span><span class="p">,</span> <span class="n">dof_map</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">FEMSystem</span><span class="o">.</span><span class="n">dirichlet</span><span class="o">.</span><span class="n">apply_to_solution</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">dof_map</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">X</span> <span class="o">=</span> <span class="n">dof_map</span><span class="o">.</span><span class="n">order_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">FEMSystem</span><span class="o">.</span><span class="n">dof_map</span><span class="p">,</span> <span class="n">array</span><span class="o">=</span><span class="n">X</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">X</span>
+
+    <span class="k">def</span> <span class="nf">run_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mesh</span><span class="p">,</span> <span class="n">matsimnibs</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Run a TMS simulation on mesh with a set of coil positions</span>
+<span class="sd">        defined by `matsimnibs`</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            mesh (simnibs.msh.Msh): Head model</span>
+<span class="sd">            matsimnibs (List[ndarray]): List of (4,4) matsimnibs matrices</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            E (ndarray): (T,3,M) Electric field matrix (T,3) for M</span>
+<span class="sd">                TMS position problems.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">matsimnibs</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="n">matsimnibs</span> <span class="o">=</span> <span class="p">[</span><span class="n">matsimnibs</span><span class="p">]</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Constructing right-hand side of FEM AX=B...&#39;</span><span class="p">)</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+        <span class="n">args</span> <span class="o">=</span> <span class="p">[(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">matsimnibs</span><span class="p">]</span>
+        <span class="k">with</span> <span class="n">mp</span><span class="o">.</span><span class="n">Pool</span><span class="p">(</span><span class="n">processes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_workers</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">starmap</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prepare_tms_matrix</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Took </span><span class="si">{</span><span class="n">end</span><span class="o">-</span><span class="n">start</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Each column vector is a TMS coil position</span>
+        <span class="n">bs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">dadts</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">dadt</span> <span class="ow">in</span> <span class="n">res</span><span class="p">:</span>
+            <span class="n">bs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+            <span class="n">dadts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dadt</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">roi</span><span class="p">])</span>
+
+        <span class="c1"># [Node x problems]</span>
+        <span class="n">B</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">bs</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">B</span><span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Computing E&quot;</span><span class="p">)</span>
+        <span class="c1"># [Nodes x Directions x Problems]</span>
+        <span class="n">DADT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">dadts</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">E</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calc_E</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">DADT</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Done&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">E</span>
+
+    <span class="k">def</span> <span class="nf">run_full_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                            <span class="n">mesh</span><span class="p">,</span>
+                            <span class="n">matsimnibs</span><span class="p">,</span>
+                            <span class="n">fields</span><span class="o">=</span><span class="n">FIELDS</span><span class="p">,</span>
+                            <span class="n">fn_geo</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Compute TMS field simulation for the full head model</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            mesh (simnibs.msh.Msh): Head model</span>
+<span class="sd">            matsimnibs (ndarray): (4,4) matsimnibs matrix</span>
+<span class="sd">            fields (List[str]): List of fields to calculate</span>
+<span class="sd">            fn_geo (str): Path to output .geo coil position file</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Constructing right-hand side of FEM AX=B...&#39;</span><span class="p">)</span>
+        <span class="n">b</span><span class="p">,</span> <span class="n">dadt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_tms_matrix</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">matsimnibs</span><span class="p">,</span> <span class="n">fn_geo</span><span class="o">=</span><span class="n">fn_geo</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+
+        <span class="c1"># Calc fields</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Computing output post-processing&quot;</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">mesh_io</span><span class="o">.</span><span class="n">NodeData</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(),</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;v&#39;</span><span class="p">,</span> <span class="n">mesh</span><span class="o">=</span><span class="n">mesh</span><span class="p">)</span>
+        <span class="n">x</span><span class="o">.</span><span class="n">mesh</span> <span class="o">=</span> <span class="n">mesh</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">calc_fields</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">fields</span><span class="p">,</span> <span class="n">cond</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cond</span><span class="p">,</span> <span class="n">dadt</span><span class="o">=</span><span class="n">dadt</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Done&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Return resulting mesh object</span>
+        <span class="k">return</span> <span class="n">res</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Jerrold Jeyachandra.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

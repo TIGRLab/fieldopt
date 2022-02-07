@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fieldopt.optimization.grid &mdash; FieldOpt  documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> FieldOpt
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">FieldOpt</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      <li>fieldopt.optimization.grid</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for fieldopt.optimization.grid</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Grid Optimizer</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">sklearn.utils.extmath</span> <span class="kn">import</span> <span class="n">cartesian</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+<span class="kn">from</span> <span class="nn">.base</span> <span class="kn">import</span> <span class="n">IterableOptimizer</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="GridOptimizer"><a class="viewcode-back" href="../../../fieldopt.optimization.html#fieldopt.optimization.grid.GridOptimizer">[docs]</a><span class="k">class</span> <span class="nc">GridOptimizer</span><span class="p">(</span><span class="n">IterableOptimizer</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    General GridOptimizer for an objective function</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">objective_func</span><span class="p">,</span>
+                 <span class="n">batchsize</span><span class="p">,</span>
+                 <span class="n">sampling_density</span><span class="p">,</span>
+                 <span class="n">bounds</span><span class="p">,</span>
+                 <span class="n">maximize</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Arguments:</span>
+<span class="sd">            objective_func (callable): Objective Function</span>
+<span class="sd">            batchsize (int): Number of evaluations to perform in parallel</span>
+<span class="sd">            sampling_density (ndarray): (P,) array indicating number of samples</span>
+<span class="sd">                for a dimension :math:`p`</span>
+<span class="sd">            bounds (ndarray): (P,2) Array where each row corresponds</span>
+<span class="sd">                to the (min, max) for a dimension :math:`p`</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">GridOptimizer</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">objective_func</span><span class="p">,</span> <span class="n">maximize</span><span class="p">)</span>
+
+        <span class="c1"># Construct Grid</span>
+        <span class="n">dim_samples</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">b</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">d</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">bounds</span><span class="p">,</span> <span class="n">sampling_density</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid</span> <span class="o">=</span> <span class="n">cartesian</span><span class="p">(</span><span class="n">dim_samples</span><span class="p">)</span>
+
+        <span class="c1"># Construct batches for evaluation</span>
+        <span class="n">divisions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">batchsize</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">batchsize</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">batches</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">divisions</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">batchsize</span> <span class="o">=</span> <span class="n">batchsize</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Will perform </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batches</span><span class="p">)</span><span class="si">}</span><span class="s2"> iterations&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">history</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;&#39;&#39;</span>
+<span class="s1">        Configuration:</span>
+<span class="s1">        Batchsize: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize</span><span class="si">}</span><span class="s1"></span>
+<span class="s1">        Maximize: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">maximize</span><span class="si">}</span><span class="s1"></span>
+
+<span class="s1">        State:</span>
+<span class="s1">        Iteration: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">iteration</span><span class="si">}</span><span class="s1"></span>
+<span class="s1">        Current Best: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">current_best</span><span class="si">}</span><span class="s1"></span>
+<span class="s1">        &#39;&#39;&#39;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">completed</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Indicate whether all sample points have been evaluated</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            completed (bool): Whether optimization is complete</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">iteration</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batches</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">current_best</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Get current estimate of optimal value</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            best_coord (ndarray): (P,) best input coordinate</span>
+<span class="sd">            best_value (float): Objective function evaluated at `best_coord`</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="c1"># No history is recorded</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">iteration</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;No iterations have yet been performed!&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">)</span>
+        <span class="n">best_coord</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span>
+        <span class="n">best_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">best_coord</span><span class="p">,</span> <span class="n">best_value</span>
+
+<div class="viewcode-block" id="GridOptimizer.get_history"><a class="viewcode-back" href="../../../fieldopt.optimization.html#fieldopt.optimization.grid.GridOptimizer.get_history">[docs]</a>    <span class="k">def</span> <span class="nf">get_history</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Retrieve current optimization history</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            history (ndarray): [N, (*inputs, value)] array, where</span>
+<span class="sd">                N is the number of points that have been sampled</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="n">evaluated_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batches</span><span class="p">[:</span><span class="bp">self</span><span class="o">.</span><span class="n">iteration</span><span class="p">])</span>
+        <span class="n">best_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">[:</span><span class="n">evaluated_points</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span><span class="n">evaluated_points</span><span class="p">,</span> <span class="n">best_values</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="GridOptimizer.step"><a class="viewcode-back" href="../../../fieldopt.optimization.html#fieldopt.optimization.grid.GridOptimizer.step">[docs]</a>    <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Perform one iteration of grid optimization using</span>
+<span class="sd">        up to self.batchsize evaluations</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            sampling_points (ndarray): Points sampled</span>
+<span class="sd">            res (ndarray): Objective function evaluations at `sampling_points`</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">completed</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">StopIteration</span>
+
+        <span class="n">sampling_points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">batches</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">iteration</span><span class="p">]</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sampling: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">sampling_points</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_objective</span><span class="p">(</span><span class="n">sampling_points</span><span class="p">)</span>
+
+        <span class="n">block_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">iteration</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">batchsize</span>
+        <span class="n">block_end</span> <span class="o">=</span> <span class="n">block_start</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">[</span><span class="n">block_start</span><span class="p">:</span><span class="n">block_end</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_increment</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">sampling_points</span><span class="p">,</span> <span class="n">res</span></div>
+
+<div class="viewcode-block" id="GridOptimizer.iter"><a class="viewcode-back" href="../../../fieldopt.optimization.html#fieldopt.optimization.grid.GridOptimizer.iter">[docs]</a>    <span class="k">def</span> <span class="nf">iter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">print_status</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Generator for end-to-end optimization</span>
+
+<span class="sd">        Yields:</span>
+<span class="sd">            iter_result (dict): Iteration tracking information</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">completed</span><span class="p">:</span>
+
+            <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+            <span class="n">sampling_points</span><span class="p">,</span> <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+            <span class="n">best_point</span><span class="p">,</span> <span class="n">best_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_best</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;best_point&quot;</span><span class="p">:</span> <span class="n">best_point</span><span class="p">,</span>
+                <span class="s2">&quot;best_value&quot;</span><span class="p">:</span> <span class="n">best_val</span><span class="p">,</span>
+                <span class="s2">&quot;iteration&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">iteration</span><span class="p">,</span>
+                <span class="s2">&quot;samples&quot;</span><span class="p">:</span> <span class="n">sampling_points</span><span class="p">,</span>
+                <span class="s2">&quot;result&quot;</span><span class="p">:</span> <span class="n">res</span>
+            <span class="p">}</span>
+
+            <span class="k">if</span> <span class="n">print_status</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Duration: </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Iteration: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">iteration</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Best Value: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">sign</span> <span class="o">*</span> <span class="n">best_val</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Complete&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">completed</span> <span class="k">else</span> <span class="s2">&quot;Not Completed&quot;</span><span class="p">)</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;-----------------------------------------------&quot;</span><span class="p">)</span>
+
+            <span class="k">yield</span> <span class="n">out</span></div></div>
+
+
+<div class="viewcode-block" id="get_default_tms_optimizer"><a class="viewcode-back" href="../../../fieldopt.optimization.html#fieldopt.optimization.grid.get_default_tms_optimizer">[docs]</a><span class="k">def</span> <span class="nf">get_default_tms_optimizer</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">locdim</span><span class="p">,</span> <span class="n">rotdim</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Construct GridOptimizer for FEM evaluation. The number</span>
+<span class="sd">    of evaluations per iteration will be set to f.cpus//2 - 1</span>
+<span class="sd">    so that SimNIBS doesn&#39;t hang when cgroup restrictions are</span>
+<span class="sd">    placed on CPU resources</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        f (fieldopt.objective.FieldFunc): FieldFunc objective function</span>
+<span class="sd">        locdim (int): Number of spatial positions to evaluate along</span>
+<span class="sd">            the :math:`(x,y)` dimension. The total number of spatial</span>
+<span class="sd">            positions sampled will be `locdim * locdim`</span>
+<span class="sd">        rotdim (int): Number of orientations to sample.</span>
+<span class="sd">            The range of orientations sampled will be constrained to [0, 180]</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        optimizer (fieldopt.optimization.grid.GridOptimizer):</span>
+<span class="sd">            Configured optimizer</span>
+
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="n">sampling</span> <span class="o">=</span> <span class="p">(</span><span class="n">locdim</span><span class="p">,</span> <span class="n">locdim</span><span class="p">,</span> <span class="n">rotdim</span><span class="p">)</span>
+    <span class="n">batchsize</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">simulator</span><span class="o">.</span><span class="n">num_workers</span>
+    <span class="n">bounds</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">domain</span><span class="o">.</span><span class="n">bounds</span>
+    <span class="n">bounds</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">180</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">GridOptimizer</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">evaluate</span><span class="p">,</span> <span class="n">batchsize</span><span class="p">,</span> <span class="n">sampling</span><span class="p">,</span> <span class="n">bounds</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Jerrold Jeyachandra.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

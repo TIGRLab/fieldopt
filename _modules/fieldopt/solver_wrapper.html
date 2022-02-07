@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fieldopt.solver_wrapper &mdash; FieldOpt  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> FieldOpt
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">FieldOpt</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      <li>fieldopt.solver_wrapper</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for fieldopt.solver_wrapper</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">Lightweight wrapper to provide equivalent interface between solvers</span>
+<span class="sd">used for FEM</span>
+<span class="sd">&#39;&#39;&#39;</span>
+
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">atexit</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">pypardiso</span> <span class="kn">import</span> <span class="n">PyPardisoSolver</span>
+<span class="kn">from</span> <span class="nn">simnibs.cython_code</span> <span class="kn">import</span> <span class="n">petsc_solver</span>
+<span class="kn">from</span> <span class="nn">simnibs.simulation.fem</span> <span class="kn">import</span> <span class="n">DEFAULT_SOLVER_OPTIONS</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="Pardiso"><a class="viewcode-back" href="../../fieldopt.html#fieldopt.solver_wrapper.Pardiso">[docs]</a><span class="k">class</span> <span class="nc">Pardiso</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    PARDISO solver wrapper</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Factorizing A for PARDISO solver&quot;</span><span class="p">)</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">solver</span> <span class="o">=</span> <span class="n">PyPardisoSolver</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">factorize</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Factorized A in </span><span class="si">{</span><span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> seconds&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_A</span> <span class="o">=</span> <span class="n">A</span>
+        <span class="n">atexit</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">free_memory</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Pardiso.solve"><a class="viewcode-back" href="../../fieldopt.html#fieldopt.solver_wrapper.Pardiso.solve">[docs]</a>    <span class="k">def</span> <span class="nf">solve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Solve linear equation :math:`Ax=B`</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            B (ndarray): (N,P) array of :math:`P` problems for</span>
+<span class="sd">                :math:`N` elements</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            X (ndarray): (N,P) Solutions matrix</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_A</span><span class="p">,</span> <span class="n">B</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="PETSc"><a class="viewcode-back" href="../../fieldopt.html#fieldopt.solver_wrapper.PETSc">[docs]</a><span class="k">class</span> <span class="nc">PETSc</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    PETSc solver wrapper</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">solver_opt</span><span class="o">=</span><span class="n">DEFAULT_SOLVER_OPTIONS</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using PetSC solver&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">A</span> <span class="o">=</span> <span class="n">A</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">solver_opt</span> <span class="o">=</span> <span class="n">solver_opt</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initialized PetSC!&quot;</span><span class="p">)</span>
+        <span class="n">petsc_solver</span><span class="o">.</span><span class="n">petsc_initialize</span><span class="p">()</span>
+        <span class="n">atexit</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">petsc_solver</span><span class="o">.</span><span class="n">petsc_finalize</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PETSc.solve"><a class="viewcode-back" href="../../fieldopt.html#fieldopt.solver_wrapper.PETSc.solve">[docs]</a>    <span class="k">def</span> <span class="nf">solve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Solve linear equation :math:`Ax=B`</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            B (ndarray): (N,P) array of :math:`P` problems for</span>
+<span class="sd">                :math:`N` elements</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            X (ndarray): (N,P) Solutions matrix</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">petsc_solver</span><span class="o">.</span><span class="n">petsc_solve</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">solver_opt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="get_solver"><a class="viewcode-back" href="../../fieldopt.html#fieldopt.solver_wrapper.get_solver">[docs]</a><span class="k">def</span> <span class="nf">get_solver</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get solver using string names</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        solver (str): Name of solver to initialize</span>
+<span class="sd">        A (ndarray): (N, N) Left-hand matrix of :math:`AX=B` to solve</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Solver interface providing a `solver.solve(B)` method</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Valid solvers are: [&quot;pardiso&quot;, &quot;petsc&quot;]</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        KeyError: If `solver` does not match a valid solver</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">solvers</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;pardiso&quot;</span><span class="p">:</span> <span class="n">Pardiso</span><span class="p">,</span> <span class="s2">&quot;petsc&quot;</span><span class="p">:</span> <span class="n">PETSc</span><span class="p">}</span>
+
+    <span class="k">if</span> <span class="n">solvers</span> <span class="o">!=</span> <span class="s2">&quot;petsc&quot;</span><span class="p">:</span>
+        <span class="c1"># Initializing simnibs.fem forces petsc initialization which</span>
+        <span class="c1"># causes annoying false error messages.</span>
+        <span class="c1"># If we&#39;re not using petsc shut it down</span>
+        <span class="n">petsc_solver</span><span class="o">.</span><span class="n">petsc_finalize</span><span class="p">()</span>
+        <span class="n">atexit</span><span class="o">.</span><span class="n">unregister</span><span class="p">(</span><span class="n">petsc_solver</span><span class="o">.</span><span class="n">petsc_finalize</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">solvers</span><span class="p">[</span><span class="n">solver</span><span class="p">](</span><span class="n">A</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Solver </span><span class="si">{</span><span class="n">solver</span><span class="si">}</span><span class="s2"> not available!&quot;</span><span class="p">)</span>
+        <span class="n">available_solvers</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">solvers</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Available solvers:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">available_solvers</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">raise</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Jerrold Jeyachandra.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fieldopt package &mdash; FieldOpt  documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> FieldOpt
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">fieldopt package</a><ul>
+<li><a class="reference internal" href="#subpackages">Subpackages</a></li>
+<li><a class="reference internal" href="#submodules">Submodules</a></li>
+<li><a class="reference internal" href="#module-fieldopt.objective">fieldopt.objective module</a></li>
+<li><a class="reference internal" href="#module-fieldopt.solver_wrapper">fieldopt.solver_wrapper module</a></li>
+<li><a class="reference internal" href="#module-fieldopt.tetrapro">fieldopt.tetrapro module</a></li>
+<li><a class="reference internal" href="#module-fieldopt">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">FieldOpt</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>fieldopt package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/fieldopt.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="fieldopt-package">
+<h1>fieldopt package<a class="headerlink" href="#fieldopt-package" title="Permalink to this headline"></a></h1>
+<section id="subpackages">
+<h2>Subpackages<a class="headerlink" href="#subpackages" title="Permalink to this headline"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="fieldopt.geometry.html">fieldopt.geometry package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="fieldopt.geometry.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fieldopt.geometry.html#module-fieldopt.geometry.domains">fieldopt.geometry.domains module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fieldopt.geometry.html#module-fieldopt.geometry.geometry">fieldopt.geometry.geometry module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fieldopt.geometry.html#module-fieldopt.geometry.mesh">fieldopt.geometry.mesh module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fieldopt.geometry.html#module-fieldopt.geometry.mesh_wrapper">fieldopt.geometry.mesh_wrapper module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fieldopt.geometry.html#module-fieldopt.geometry">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="fieldopt.optimization.html">fieldopt.optimization package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="fieldopt.optimization.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fieldopt.optimization.html#module-fieldopt.optimization.base">fieldopt.optimization.base module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fieldopt.optimization.html#module-fieldopt.optimization.bayes_moe">fieldopt.optimization.bayes_moe module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fieldopt.optimization.html#module-fieldopt.optimization.grid">fieldopt.optimization.grid module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fieldopt.optimization.html#module-fieldopt.optimization">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline"></a></h2>
+</section>
+<section id="module-fieldopt.objective">
+<span id="fieldopt-objective-module"></span><h2>fieldopt.objective module<a class="headerlink" href="#module-fieldopt.objective" title="Permalink to this headline"></a></h2>
+<p>Objective function for evaluating TMS field simulations</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="fieldopt.objective.FieldFunc">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fieldopt.objective.</span></span><span class="sig-name descname"><span class="pre">FieldFunc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">head_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sampling_domain</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coil</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tet_weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">didt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nworkers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nthreads</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">solver</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'pardiso'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/objective.html#FieldFunc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.objective.FieldFunc" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>TMS simulation objective function</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="fieldopt.objective.FieldFunc.evaluate">
+<span class="sig-name descname"><span class="pre">evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_basename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/objective.html#FieldFunc.evaluate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.objective.FieldFunc.evaluate" title="Permalink to this definition"></a></dt>
+<dd><p>Evaluate the TMS objective function on a list of input
+coordinates</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>input_list</strong> (<em>List</em><em>[</em><em>tuple</em><em>(</em><em>float</em><em>,</em><em>float</em><em>,</em><em>float</em><em>]</em>) – (N,3) iterable
+containing (x,y,theta) entries</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>(N,) array of total E-field magnitudes over ROI for each</strong> – input position</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fieldopt.objective.FieldFunc.get_coil2cortex_distance">
+<span class="sig-name descname"><span class="pre">get_coil2cortex_distance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_coord</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/objective.html#FieldFunc.get_coil2cortex_distance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.objective.FieldFunc.get_coil2cortex_distance" title="Permalink to this definition"></a></dt>
+<dd><p>Compute distance from coil to cortical surface mesh using
+ray interception.</p>
+<p>This function wraps: <cite>simnibs.msh.Msh.intercept_ray</cite></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>input_coord</strong> (<em>tuple</em>) – (x,y,theta) tuple describing input
+coordinates on objective function domain</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>d</strong> (<em>float</em>) – The distance between the proposed coil location
+and the target ROI on the cortex</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="fieldopt.objective.FieldFunc.mesh">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mesh</span></span><a class="headerlink" href="#fieldopt.objective.FieldFunc.mesh" title="Permalink to this definition"></a></dt>
+<dd><p>Get underlying simnibs.msh.Msh object</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fieldopt.objective.FieldFunc.place_coils">
+<span class="sig-name descname"><span class="pre">place_coils</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_list</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/objective.html#FieldFunc.place_coils"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.objective.FieldFunc.place_coils" title="Permalink to this definition"></a></dt>
+<dd><p>Place multiple coil locations on parameteric surface defined
+by objective funtion domain</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>input_list</strong> (<em>List</em><em>[</em><em>tuple</em><em>(</em><em>float</em><em>,</em><em>float</em><em>,</em><em>float</em><em>]</em>) – (N,3) iterable
+containing (x,y,theta) entries</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>List of SimNIBS matsimnibs matrices of length N</strong></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fieldopt.objective.FieldFunc.visualize_evaluate">
+<span class="sig-name descname"><span class="pre">visualize_evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">theta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matsimnibs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_sim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_geo</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['e']</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/objective.html#FieldFunc.visualize_evaluate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.objective.FieldFunc.visualize_evaluate" title="Permalink to this definition"></a></dt>
+<dd><p>Generate a visualization of a TMS simulation on a given
+coordinate</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>float</em>) – Sampling domain x</p></li>
+<li><p><strong>y</strong> (<em>float</em>) – Sampling domain y</p></li>
+<li><p><strong>theta</strong> (<em>float</em>) – Sampling domain rotation angle</p></li>
+<li><p><strong>matsimnibs</strong> (<em>ndarray</em>) – (4,4) Matsimnibs matrix</p></li>
+<li><p><strong>out_sim</strong> (<em>str</em>) – Output path for msh file</p></li>
+<li><p><strong>out_geo</strong> (<em>str</em>) – Output path for coil position file</p></li>
+<li><p><strong>fields</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – Fields to include in visualization
+[Default: normE]</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<dl class="simple">
+<dt>If both <span class="math notranslate nohighlight">\((x,y,theta)\)</span> and <cite>matsimnibs</cite> are provided,</dt><dd><p>the former takes precedence.</p>
+</dd>
+</dl>
+</div>
+<p>:raises ValueError if either a full <span class="math notranslate nohighlight">\((x,y,theta)\)</span> set of inputs: or <cite>matsimnibs</cite> is not provided</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-fieldopt.solver_wrapper">
+<span id="fieldopt-solver-wrapper-module"></span><h2>fieldopt.solver_wrapper module<a class="headerlink" href="#module-fieldopt.solver_wrapper" title="Permalink to this headline"></a></h2>
+<p>Lightweight wrapper to provide equivalent interface between solvers
+used for FEM</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="fieldopt.solver_wrapper.PETSc">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fieldopt.solver_wrapper.</span></span><span class="sig-name descname"><span class="pre">PETSc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">solver_opt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'-ksp_type</span> <span class="pre">cg</span> <span class="pre">-ksp_rtol</span> <span class="pre">1e-10</span> <span class="pre">-pc_type</span> <span class="pre">hypre</span> <span class="pre">-pc_hypre_type</span> <span class="pre">boomeramg</span> <span class="pre">-pc_hypre_boomeramg_coarsen_type</span> <span class="pre">HMIS'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/solver_wrapper.html#PETSc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.solver_wrapper.PETSc" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>PETSc solver wrapper</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="fieldopt.solver_wrapper.PETSc.solve">
+<span class="sig-name descname"><span class="pre">solve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">B</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/solver_wrapper.html#PETSc.solve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.solver_wrapper.PETSc.solve" title="Permalink to this definition"></a></dt>
+<dd><p>Solve linear equation <span class="math notranslate nohighlight">\(Ax=B\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>B</strong> (<em>ndarray</em>) – (N,P) array of <span class="math notranslate nohighlight">\(P\)</span> problems for
+<span class="math notranslate nohighlight">\(N\)</span> elements</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>X</strong> (<em>ndarray</em>) – (N,P) Solutions matrix</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fieldopt.solver_wrapper.Pardiso">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fieldopt.solver_wrapper.</span></span><span class="sig-name descname"><span class="pre">Pardiso</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/solver_wrapper.html#Pardiso"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.solver_wrapper.Pardiso" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>PARDISO solver wrapper</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="fieldopt.solver_wrapper.Pardiso.solve">
+<span class="sig-name descname"><span class="pre">solve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">B</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/solver_wrapper.html#Pardiso.solve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.solver_wrapper.Pardiso.solve" title="Permalink to this definition"></a></dt>
+<dd><p>Solve linear equation <span class="math notranslate nohighlight">\(Ax=B\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>B</strong> (<em>ndarray</em>) – (N,P) array of <span class="math notranslate nohighlight">\(P\)</span> problems for
+<span class="math notranslate nohighlight">\(N\)</span> elements</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>X</strong> (<em>ndarray</em>) – (N,P) Solutions matrix</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.solver_wrapper.get_solver">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.solver_wrapper.</span></span><span class="sig-name descname"><span class="pre">get_solver</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">solver</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">A</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/solver_wrapper.html#get_solver"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.solver_wrapper.get_solver" title="Permalink to this definition"></a></dt>
+<dd><p>Get solver using string names</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>solver</strong> (<em>str</em>) – Name of solver to initialize</p></li>
+<li><p><strong>A</strong> (<em>ndarray</em>) – (N, N) Left-hand matrix of <span class="math notranslate nohighlight">\(AX=B\)</span> to solve</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>Solver interface providing a `solver.solve</strong> (<em>B</em>)</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Valid solvers are: [“pardiso”, “petsc”]</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Raises</dt>
+<dd class="field-odd"><p><strong>KeyError</strong> – If <cite>solver</cite> does not match a valid solver</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-fieldopt.tetrapro">
+<span id="fieldopt-tetrapro-module"></span><h2>fieldopt.tetrapro module<a class="headerlink" href="#module-fieldopt.tetrapro" title="Permalink to this headline"></a></h2>
+<p>Fieldopt tetrahedral projection module for mapping
+volumetric data onto a tetrahedral volumetric mesh model</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.tetrapro.aabb_voxels">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.tetrapro.</span></span><span class="sig-name descname"><span class="pre">aabb_voxels</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/tetrapro.html#aabb_voxels"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.tetrapro.aabb_voxels" title="Permalink to this definition"></a></dt>
+<dd><p>Identify voxels within an axis-aligned boundary box that contain
+coordinates in <cite>coords</cite></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>coords</strong> (<em>ndarray</em>) – (4,3) array containing tetrahedral coordinates
+in voxel space</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>Voxel</strong> (<em>i,j,k</em>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Assumes voxels are isotropic 1x1x1!</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.tetrapro.estimate_partial_parcel">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.tetrapro.</span></span><span class="sig-name descname"><span class="pre">estimate_partial_parcel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coord</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vox</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parcels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/tetrapro.html#estimate_partial_parcel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.tetrapro.estimate_partial_parcel" title="Permalink to this definition"></a></dt>
+<dd><p>Estimate parcellation labels composition of a tetrahedron</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>coord</strong> (<em>ndarray</em>) – (4,3) tetrahedron vertices</p></li>
+<li><p><strong>vox</strong> (<em>ndarray</em>) – (n,3) voxel coordinates</p></li>
+<li><p><strong>parcels</strong> (<em>ndarray</em>) – (n,1) voxel parcel labels</p></li>
+<li><p><strong>out</strong> (<em>ndarray</em>) – output array</p></li>
+<li><p><strong>iter</strong> (<em>int</em>) – number of Monte-Carlo sampling interations</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>(P,) `ndarray` of how much of each parcel is in a tetrahedron</strong></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.tetrapro.estimate_partial_weights">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.tetrapro.</span></span><span class="sig-name descname"><span class="pre">estimate_partial_weights</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coord</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vox</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/tetrapro.html#estimate_partial_weights"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.tetrapro.estimate_partial_weights" title="Permalink to this definition"></a></dt>
+<dd><p>Estimate resampled value of a tetrahedron from voxels</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>coord</strong> (<em>ndarray</em>) – (4,3) tetrahedron vertices</p></li>
+<li><p><strong>vox</strong> (<em>ndarray</em>) – (n,3) voxel coordinates</p></li>
+<li><p><strong>weights</strong> (<em>ndarray</em>) – (n,1) voxel values</p></li>
+<li><p><strong>out</strong> (<em>ndarray</em>) – output array to write to</p></li>
+<li><p><strong>iter</strong> (<em>int</em>) – number of Monte-Carlo sampling interations</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>Scalar value of tetrahedron from resampling from voxel weights</strong></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.tetrapro.get_vertex_range">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.tetrapro.</span></span><span class="sig-name descname"><span class="pre">get_vertex_range</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">i</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">j</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/tetrapro.html#get_vertex_range"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.tetrapro.get_vertex_range" title="Permalink to this definition"></a></dt>
+<dd><p>Wrapper for numba to be able to use tuple-based indexing with Python 3.6+.</p>
+<p>Given an array arr, an index base i, and a stride of k.
+Generate an array which starts at k*arr[i,j] and goes to (k*arr[i,j])+k</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>arr</strong> (<em>ndarray</em>) – Array to index</p></li>
+<li><p><strong>i</strong> (<em>int</em>) – row to select</p></li>
+<li><p><strong>j</strong> (<em>int</em>) – column to select</p></li>
+<li><p><strong>k</strong> (<em>int</em>) – end point of range</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>Range from `k*a[i,j]` to `k*[a[i,j]]+k`</strong></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.tetrapro.homogenous_transform">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.tetrapro.</span></span><span class="sig-name descname"><span class="pre">homogenous_transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">A</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/tetrapro.html#homogenous_transform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.tetrapro.homogenous_transform" title="Permalink to this definition"></a></dt>
+<dd><p>Transform into homogenous coordinates and apply an affine map</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>coords</strong> (<em>ndarray</em>) – (1,3) array to transform</p></li>
+<li><p><strong>A</strong> (<em>ndarray</em>) – (4,4) Affine map to apply</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.tetrapro.map_nodes">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.tetrapro.</span></span><span class="sig-name descname"><span class="pre">map_nodes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prop_array</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/tetrapro.html#map_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.tetrapro.map_nodes" title="Permalink to this definition"></a></dt>
+<dd><p>Convenience function to remap a value according to a properties array.
+A properties array is an (nx3) numpy array that stores
+the following information for the :math:<a href="#id1"><span class="problematic" id="id2">`</span></a>i`th gmsh element</p>
+<ul class="simple">
+<li><p>[1] - minimum element node number</p></li>
+<li><p>[2] - maximum element node number</p></li>
+<li><p>[3] - number of element nodes</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>ndarray</em>) – Node array to remap</p></li>
+<li><p><strong>prop_array</strong> (<em>ndarray</em>) – (K, 3) properties array</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>Remapped x `ndarray` according to `prop_array`</strong></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.tetrapro.meshgrid">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.tetrapro.</span></span><span class="sig-name descname"><span class="pre">meshgrid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/tetrapro.html#meshgrid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.tetrapro.meshgrid" title="Permalink to this definition"></a></dt>
+<dd><p>Create a coordinate array for all combinations of points in <cite>x,y,z</cite></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>ndarray</em>) – (N,) x-coordinate array</p></li>
+<li><p><strong>y</strong> (<em>ndarray</em>) – (N,) y-coordinate array</p></li>
+<li><p><strong>z</strong> (<em>ndarray</em>) – (N,) z-coordinate array</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>(3,P) matrix of all permutations of `x,y,z`</strong></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.tetrapro.point_in_vox">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.tetrapro.</span></span><span class="sig-name descname"><span class="pre">point_in_vox</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">midpoint</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">voxdim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/tetrapro.html#point_in_vox"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.tetrapro.point_in_vox" title="Permalink to this definition"></a></dt>
+<dd><p>Check whether <cite>point</cite> is inside a voxel defined by its
+<cite>midpoint</cite> and <cite>voxdim</cite></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>point</strong> (<em>ndarray</em>) – (3,) point to check</p></li>
+<li><p><strong>midpoint</strong> (<em>ndarray</em>) – (3,) voxel midpoint</p></li>
+<li><p><strong>voxdim</strong> (<em>float</em>) – voxel width, assuming isotropic</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Output:</dt><dd><p>True if point in voxel bounds</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.tetrapro.tetrahedral_parcel_projection">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.tetrapro.</span></span><span class="sig-name descname"><span class="pre">tetrahedral_parcel_projection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coord_arr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ribbon</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">affine</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/tetrapro.html#tetrahedral_parcel_projection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.tetrapro.tetrahedral_parcel_projection" title="Permalink to this definition"></a></dt>
+<dd><p>Perform tetrahedral projection for parcellation inputs</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>node_list</strong> (<em>ndarray</em>) – (T, 4) List of tetrahedral vertex IDs</p></li>
+<li><p><strong>coord_arr</strong> (<em>ndarray</em>) – (N, 3) Vertex coordinate list</p></li>
+<li><p><strong>ribbon</strong> (<em>ndarray</em>) – (X,Y,Z) MRI parcellation volume array</p></li>
+<li><p><strong>affine</strong> (<em>ndarray</em>) – Affine transformation matrix associated with <cite>ribbon</cite></p></li>
+<li><p><strong>n_iter</strong> (<em>int</em>) – Number of monte-carlo iterations to estimate proportion
+of volume</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>(T,P) array containing parcel compositions for each tetrahedron</strong></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.tetrapro.tetrahedral_weight_projection">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.tetrapro.</span></span><span class="sig-name descname"><span class="pre">tetrahedral_weight_projection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coord_arr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ribbon</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">affine</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/tetrapro.html#tetrahedral_weight_projection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.tetrapro.tetrahedral_weight_projection" title="Permalink to this definition"></a></dt>
+<dd><p>Perform tetrahedral projection for weighted inputs</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>node_list</strong> (<em>ndarray</em>) – (T, 4) List of tetrahedral vertex IDs</p></li>
+<li><p><strong>coord_arr</strong> (<em>ndarray</em>) – (N, 3) Vertex coordinate list</p></li>
+<li><p><strong>ribbon</strong> (<em>ndarray</em>) – (X,Y,Z) Continously valued volume array</p></li>
+<li><p><strong>affine</strong> (<em>ndarray</em>) – Affine transformation matrix associated with <cite>ribbon</cite></p></li>
+<li><p><strong>n_iter</strong> (<em>int</em>) – Number of monte-carlo iterations to estimate proportion
+of volume</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>(T,) array containing `ribbon` values resampled to</strong> – tetrahedral volume mesh</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fieldopt.tetrapro.uniform_tet">
+<span class="sig-prename descclassname"><span class="pre">fieldopt.tetrapro.</span></span><span class="sig-name descname"><span class="pre">uniform_tet</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/fieldopt/tetrapro.html#uniform_tet"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fieldopt.tetrapro.uniform_tet" title="Permalink to this definition"></a></dt>
+<dd><p>Generate a sample within a tetrahedron from a uniform distribution</p>
+<dl class="simple">
+<dt>Argument:</dt><dd><p>coords (ndarray): (4,3) tetrahedral vertex array</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><strong>A random point inside the tetrahedral volume defined by `coords`</strong></p>
+</dd>
+</dl>
+<p class="rubric">References</p>
+<p><a class="reference external" href="http://vcg.isti.cnr.it/jgt/tetra.htm">http://vcg.isti.cnr.it/jgt/tetra.htm</a></p>
+</dd></dl>
+
+</section>
+<section id="module-fieldopt">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-fieldopt" title="Permalink to this headline"></a></h2>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Jerrold Jeyachandra.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

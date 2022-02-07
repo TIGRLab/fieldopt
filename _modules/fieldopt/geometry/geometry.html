@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fieldopt.geometry.geometry &mdash; FieldOpt  documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> FieldOpt
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">FieldOpt</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      <li>fieldopt.geometry.geometry</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for fieldopt.geometry.geometry</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;General geometry routines for mesh manipulation</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">scipy.linalg</span> <span class="kn">import</span> <span class="n">lstsq</span>
+<span class="kn">import</span> <span class="nn">numba</span>
+
+
+<div class="viewcode-block" id="skew"><a class="viewcode-back" href="../../../fieldopt.geometry.html#fieldopt.geometry.geometry.skew">[docs]</a><span class="k">def</span> <span class="nf">skew</span><span class="p">(</span><span class="n">vector</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function returns a numpy array with the skew symmetric cross product</span>
+<span class="sd">    matrix for vector. The skew symmetric cross product matrix is defined</span>
+<span class="sd">    such that:</span>
+
+<span class="sd">    `np.cross(a, b) = np.dot(skew(a), b)`</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        vector (ndarray): An array like vector to create the skew</span>
+<span class="sd">            symmetric cross product matrix for</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        skew (ndarray): A numpy array of the skew symmetric cross</span>
+<span class="sd">            product vector</span>
+
+<span class="sd">    References:</span>
+<span class="sd">        https://stackoverflow.com/questions/36915774/form-numpy-array-from-possible-numpy-array</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">vector</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="n">vector</span><span class="o">.</span><span class="n">item</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span>
+                          <span class="n">vector</span><span class="o">.</span><span class="n">item</span><span class="p">(</span><span class="mi">1</span><span class="p">)],</span>
+                         <span class="p">[</span><span class="n">vector</span><span class="o">.</span><span class="n">item</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="n">vector</span><span class="o">.</span><span class="n">item</span><span class="p">(</span><span class="mi">0</span><span class="p">)],</span>
+                         <span class="p">[</span><span class="o">-</span><span class="n">vector</span><span class="o">.</span><span class="n">item</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">vector</span><span class="o">.</span><span class="n">item</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="mi">0</span><span class="p">]])</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="n">vector</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">vector</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span> <span class="p">[</span><span class="n">vector</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="n">vector</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span>
+                     <span class="p">[</span><span class="o">-</span><span class="n">vector</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">vector</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">]])</span></div>
+
+
+<div class="viewcode-block" id="affine"><a class="viewcode-back" href="../../../fieldopt.geometry.html#fieldopt.geometry.geometry.affine">[docs]</a><span class="k">def</span> <span class="nf">affine</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Apply affine transformation A to vector set x.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        A (ndarray): (4,4) Affine matrix</span>
+<span class="sd">        x (ndarray): (3,N) Set of 3D coordinate vectors</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        b (ndarray): Transformed coordinates :math: `Ax`</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="n">h</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">))]</span>
+    <span class="n">Ah</span> <span class="o">=</span> <span class="n">A</span> <span class="o">@</span> <span class="n">h</span><span class="o">.</span><span class="n">T</span>
+    <span class="k">return</span> <span class="n">Ah</span><span class="o">.</span><span class="n">T</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">3</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="rotate_vec2vec"><a class="viewcode-back" href="../../../fieldopt.geometry.html#fieldopt.geometry.geometry.rotate_vec2vec">[docs]</a><span class="k">def</span> <span class="nf">rotate_vec2vec</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Rotate vector v1 onto v2 and return the transformation matrix R that</span>
+<span class="sd">    achieves this</span>
+
+<span class="sd">    Compute transformation matrix :math:`R` that rotates a vector</span>
+<span class="sd">    :math:`v1` onto :math:`v2`</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        v1 (ndarray): (3,) starting vector</span>
+<span class="sd">        v2 (ndarray): (3,) final vector to rotate to</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        R (ndarray): (3,3) rotation matrix</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="n">n</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">)</span>
+    <span class="n">sinv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="n">cosv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">)</span>
+    <span class="n">R</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="o">+</span> <span class="n">skew</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">skew</span><span class="p">(</span><span class="n">n</span><span class="p">),</span> <span class="n">skew</span><span class="p">(</span><span class="n">n</span><span class="p">))</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">cosv</span><span class="p">)</span> <span class="o">/</span>
+         <span class="p">(</span><span class="n">sinv</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">R</span></div>
+
+
+<div class="viewcode-block" id="quad_fit"><a class="viewcode-back" href="../../../fieldopt.geometry.html#fieldopt.geometry.geometry.quad_fit">[docs]</a><span class="k">def</span> <span class="nf">quad_fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Perform quadratic surface fitting of form:</span>
+
+<span class="sd">    :math:`f(x,y) = a + bx + cy + dxy + ex^2 + fy^2`</span>
+
+<span class="sd">    By finding the least squares solution of :math:`Ax = b`</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        X (ndarray): (P, 2) P set of :math:`(x,y)` points</span>
+<span class="sd">        b (ndarray): (P,) set of :math:`f(x,y)` points</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="c1"># Formulate the linear problem</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">X</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">2</span><span class="p">],</span>
+              <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">X</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">2</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">X</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">2</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span><span class="p">]</span>
+
+    <span class="n">C</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">lstsq</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">C</span></div>
+
+
+<div class="viewcode-block" id="compute_principal_dir"><a class="viewcode-back" href="../../../fieldopt.geometry.html#fieldopt.geometry.geometry.compute_principal_dir">[docs]</a><span class="k">def</span> <span class="nf">compute_principal_dir</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">C</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Compute the principal direction of a quadratic surface :math:`S` of form:</span>
+
+<span class="sd">    :math:`S: f(x,y) = a + bx + cy + dxy + ex^2 + fy^2`</span>
+
+<span class="sd">    Using the second fundamental form basis matrix eigendecomposition method</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        x (float): :math:`x` coordinate on parameterized surface :math:`S`</span>
+<span class="sd">        y (float): :math:`y` coordinate on parameterized surface :math:`S`</span>
+<span class="sd">        C (ndarray): (6,) surface coefficients</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        V (ndarray): (2,2) Principal component column vectors</span>
+<span class="sd">        n (ndarray): (3,) normal to surface S at point (x,y)</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="c1"># Compute partial first and second derivatives</span>
+    <span class="n">r_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">C</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span> <span class="o">+</span> <span class="n">C</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">C</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">*</span> <span class="n">y</span><span class="p">])</span>
+    <span class="n">r_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">C</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="o">*</span> <span class="n">y</span> <span class="o">+</span> <span class="n">C</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="n">C</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span><span class="p">])</span>
+    <span class="n">r_xx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">C</span><span class="p">[</span><span class="mi">4</span><span class="p">]])</span>
+    <span class="n">r_yy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">C</span><span class="p">[</span><span class="mi">5</span><span class="p">]])</span>
+    <span class="n">r_xy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">C</span><span class="p">[</span><span class="mi">3</span><span class="p">]])</span>
+
+    <span class="c1"># Compute surface point normal</span>
+    <span class="n">r_x_cross_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">r_x</span><span class="p">,</span> <span class="n">r_y</span><span class="p">)</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">r_x_cross_y</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">r_x_cross_y</span><span class="p">)</span>
+
+    <span class="c1"># Compute second fundamental form constants</span>
+    <span class="n">L</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">r_xx</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">r_xy</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+    <span class="n">N</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">r_yy</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+
+    <span class="c1"># Form basis matrix</span>
+    <span class="n">P</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">L</span><span class="p">,</span> <span class="n">M</span><span class="p">],</span> <span class="p">[</span><span class="n">M</span><span class="p">,</span> <span class="n">N</span><span class="p">]])</span>
+
+    <span class="c1"># Eigendecomposition, then convert into 3D vector</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="n">P</span><span class="p">)</span>
+    <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">V</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">V</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">V</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">n</span></div>
+
+
+<div class="viewcode-block" id="interpolate_angle"><a class="viewcode-back" href="../../../fieldopt.geometry.html#fieldopt.geometry.geometry.interpolate_angle">[docs]</a><span class="k">def</span> <span class="nf">interpolate_angle</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">l</span><span class="o">=</span><span class="mf">90.0</span><span class="p">):</span>  <span class="c1"># noqa: E741</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Interpolate between two orthogonal vectors :math:`u` and :math:`v`</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        u (ndarray): (3,) vector</span>
+<span class="sd">        v (ndarray): (3,) vector orthogonal to :math:`u`</span>
+<span class="sd">        t (float): Interpolation value</span>
+<span class="sd">        l (float): Period of rotation</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        ori (ndarray): (3,) vector in between :math:`u` and :math:`v`</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="n">theta</span> <span class="o">=</span> <span class="p">(</span><span class="n">t</span> <span class="o">/</span> <span class="n">l</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">u</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">+</span> <span class="n">v</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">),</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">p</span></div>
+
+
+<div class="viewcode-block" id="quadratic_surf"><a class="viewcode-back" href="../../../fieldopt.geometry.html#fieldopt.geometry.geometry.quadratic_surf">[docs]</a><span class="k">def</span> <span class="nf">quadratic_surf</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">C</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Project parameteric coordinates :math:`(x,y)` onto a quadratic surface</span>
+<span class="sd">    :math:`S` defined as:</span>
+
+<span class="sd">    :math:`f(x,y) = a + bx + cy + dxy + ex^2 + fy^2`</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        x (float): :math:`x` coordinate</span>
+<span class="sd">        y (float): :math:`y` coordinate</span>
+<span class="sd">        C (ndarray): (6,) surface coefficients</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        :math:`f(x,y)` scalar value</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="k">return</span> <span class="p">(</span><span class="n">C</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">C</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span> <span class="o">+</span> <span class="n">C</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">y</span> <span class="o">+</span> <span class="n">C</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">y</span> <span class="o">+</span> <span class="n">C</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">x</span> <span class="o">+</span>
+            <span class="n">C</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="o">*</span> <span class="n">y</span> <span class="o">*</span> <span class="n">y</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="quadratic_surf_position"><a class="viewcode-back" href="../../../fieldopt.geometry.html#fieldopt.geometry.geometry.quadratic_surf_position">[docs]</a><span class="k">def</span> <span class="nf">quadratic_surf_position</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">C</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    For some mesh-based surface :math:`S`,</span>
+<span class="sd">    define a parameterization using a quadratic fit:</span>
+
+<span class="sd">    :math:`f(x,y) = a + bx + cy + dxy + ex^2 + fy^2`</span>
+
+<span class="sd">    Compute the mapping from :math:`(x,y) \\to (x,y,f(x,y))`</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        x (float): :math:`x` coordinate</span>
+<span class="sd">        y (float): :math:`y` coordinate</span>
+<span class="sd">        C (ndarray): (6,) surface coefficients</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        (3,) :math:`(x,y,f(x,y))` vector</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="c1"># Compute approximate surface at (x,y)</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">quadratic_surf</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">C</span><span class="p">)</span>
+
+    <span class="c1"># Form input vector</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">v</span></div>
+
+
+<div class="viewcode-block" id="quadratic_surf_rotation"><a class="viewcode-back" href="../../../fieldopt.geometry.html#fieldopt.geometry.geometry.quadratic_surf_rotation">[docs]</a><span class="k">def</span> <span class="nf">quadratic_surf_rotation</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">C</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Construct an orientation vector on a quadratic surface defined by</span>
+<span class="sd">    coefficients :math:`C`</span>
+
+<span class="sd">    For some mesh-based surface, define a least squares quadratic</span>
+<span class="sd">    surface parameterization :math:`S`:</span>
+
+<span class="sd">    :math:`f(x,y) = a + bx + cy + dxy + ex^2 + fy^2`</span>
+
+<span class="sd">    :math:`(x,y)` are therefore parameteric coordinates that are projected</span>
+<span class="sd">    to the surface :math:`S`. Following projection a local orientation is</span>
+<span class="sd">    defined by interpolating the principal directions</span>
+<span class="sd">    :math:`(u,v)` by :math:`t`.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        x (float): :math:`x` coordinate</span>
+<span class="sd">        y (float): :math:`y` coordinate</span>
+<span class="sd">        t (float): Interpolation amount between principal directions</span>
+<span class="sd">            :math:`(u,v)`. Period of :math:`T=90` is used for</span>
+<span class="sd">            interpolation.</span>
+<span class="sd">        C (ndarray): (6,) surface coefficients</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        (3,) :math:`(x,y,z)` direction vector</span>
+<span class="sd">        (3,) normal vector</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="n">compute_principal_dir</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">C</span><span class="p">)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">interpolate_angle</span><span class="p">(</span><span class="n">v1</span><span class="p">[:</span><span class="mi">2</span><span class="p">],</span> <span class="n">v2</span><span class="p">[:</span><span class="mi">2</span><span class="p">],</span> <span class="n">t</span><span class="p">)</span>
+
+    <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">R</span> <span class="o">=</span> <span class="n">rotate_vec2vec</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+    <span class="n">pp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">pp</span><span class="p">,</span> <span class="n">n</span></div>
+
+
+<div class="viewcode-block" id="define_coil_orientation"><a class="viewcode-back" href="../../../fieldopt.geometry.html#fieldopt.geometry.geometry.define_coil_orientation">[docs]</a><span class="k">def</span> <span class="nf">define_coil_orientation</span><span class="p">(</span><span class="n">loc</span><span class="p">,</span> <span class="n">rot</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Construct the coil orientation matrix (matsimnibs) to be used by simnibs</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        loc (ndarray): (3,) Centre coordinates of coil</span>
+<span class="sd">        rot (ndarray): Orientation vector of coil</span>
+<span class="sd">        n (ndarray): Coil normal vector</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        matsimnibs (ndarray): (4,4) matsimnibs matrix with column vectors</span>
+<span class="sd">            [x, y, z, t]</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="n">y</span> <span class="o">=</span> <span class="n">rot</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">rot</span><span class="p">)</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">n</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">loc</span>
+
+    <span class="n">matsimnibs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">matsimnibs</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
+    <span class="n">matsimnibs</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">y</span>
+    <span class="n">matsimnibs</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">z</span>
+    <span class="n">matsimnibs</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span>
+    <span class="n">matsimnibs</span><span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="k">return</span> <span class="n">matsimnibs</span></div>
+
+
+<div class="viewcode-block" id="unitize_arr"><a class="viewcode-back" href="../../../fieldopt.geometry.html#fieldopt.geometry.geometry.unitize_arr">[docs]</a><span class="nd">@numba</span><span class="o">.</span><span class="n">njit</span>
+<span class="k">def</span> <span class="nf">unitize_arr</span><span class="p">(</span><span class="n">arr</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Normalize array row-wise</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        arr (ndarray): (n,p) array to normalize</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        normed (ndarray): (n,p) array where each row is unit length</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="c1"># TODO: Generalize this to p dimensions</span>
+    <span class="n">narr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="n">narr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:])</span>
+
+    <span class="k">return</span> <span class="n">narr</span></div>
+
+
+<div class="viewcode-block" id="compute_parameteric_coordinates"><a class="viewcode-back" href="../../../fieldopt.geometry.html#fieldopt.geometry.geometry.compute_parameteric_coordinates">[docs]</a><span class="k">def</span> <span class="nf">compute_parameteric_coordinates</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">w</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Given two coordinate axes :math:`(u,v)` find :math:`(s,t)`, given that:</span>
+
+<span class="sd">    :math:`w = su + tv`</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        u (ndarray): (3,) Axis of parameteric coordinate system</span>
+<span class="sd">        v (ndarray): (3,) Secondary axis of parameteric coordinate system</span>
+<span class="sd">        w (ndarray): (3,) Point lying on plane spanned by :math:`(u,v)`</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        s (float): Parameteric coordinate for axis spanned by :math:`u`</span>
+<span class="sd">        t (float): Parameteric coordinate for axis spanned by :math:`v`</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="n">uu</span> <span class="o">=</span> <span class="p">(</span><span class="n">u</span> <span class="o">*</span> <span class="n">u</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">uv</span> <span class="o">=</span> <span class="p">(</span><span class="n">u</span> <span class="o">*</span> <span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">vv</span> <span class="o">=</span> <span class="p">(</span><span class="n">v</span> <span class="o">*</span> <span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">wu</span> <span class="o">=</span> <span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">u</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">wv</span> <span class="o">=</span> <span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">D</span> <span class="o">=</span> <span class="p">(</span><span class="n">uv</span> <span class="o">*</span> <span class="n">uv</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="n">uu</span> <span class="o">*</span> <span class="n">vv</span><span class="p">)</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="p">((</span><span class="n">uv</span> <span class="o">*</span> <span class="n">wv</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="n">vv</span> <span class="o">*</span> <span class="n">wu</span><span class="p">))</span> <span class="o">/</span> <span class="n">D</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="p">((</span><span class="n">uv</span> <span class="o">*</span> <span class="n">wu</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="n">uu</span> <span class="o">*</span> <span class="n">wv</span><span class="p">))</span> <span class="o">/</span> <span class="n">D</span>
+
+    <span class="k">return</span> <span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Jerrold Jeyachandra.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
