@@ -1,4 +1,4 @@
-FROM ubuntu:16.04
+FROM python:3.7-buster
 
 RUN apt-get update && \
 	apt-get install -y --no-install-recommends \
@@ -17,16 +17,8 @@ RUN apt-get update && \
 	libxft2 \
 	libxinerama1 \
 	curl \
-	gfortran && \
-	git clone https://github.com/wujian16/Cornell-MOE.git \
-	&& add-apt-repository ppa:deadsnakes/ppa \
-	&& apt-get update \
-	&& apt-get install -y --no-install-recommends python3.7 python3.7-dev \
-	&& curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py \
-	&& python3.7 /get-pip.py && rm /get-pip.py \
-	&& rm /usr/bin/python3 /usr/bin/python \
-	&& ln -s /usr/bin/python3.7 /usr/bin/python3 \
-	&& ln -s /usr/bin/python3.7 /usr/bin/python
+	gfortran \
+	&& git clone https://github.com/wujian16/Cornell-MOE.git
 
 #Set up environment for installing Cornell-MOE
 ENV	MOE_CC_PATH=/usr/bin/gcc \
@@ -48,7 +40,7 @@ RUN pip install -f https://github.com/simnibs/simnibs/releases/tag/${SIMNIBS_VER
 RUN pip install future \
 	&& cd /Cornell-MOE \
 	&& pip install -r requirements.txt \
-	&& pip install . 
+	&& pip install .
 
 RUN pip install https://github.com/skoch9/meshplot/archive/0.4.0.tar.gz
 
@@ -59,4 +51,4 @@ RUN	git clone https://github.com/jerdra/fieldopt.git \
 	&& git checkout ${COMMIT_SHA} \
 	&& pip install ${PIP_FLAGS} .[all]
 
-ENTRYPOINT /bin/bash
+ENTRYPOINT ["/bin/bash", "-c"]
