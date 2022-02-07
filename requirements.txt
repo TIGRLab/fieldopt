@@ -1,5 +1,4 @@
 emcee==2.2.1
-MOE==1.0.0
 nibabel==3.2.1
 nilearn==0.8.0
 numba==0.53.1
@@ -7,10 +6,17 @@ numpy==1.21.0
 packaging==20.9
 scikit-learn==0.24.2
 scipy==1.7.0
-simnibs==3.1.2
 sklearn==0.0
 wrapt==1.12.1
 psutil==5.8.0
-mkl==2021.3.0
+mkl==2022.0.2
 mkl-service==2.4.0
 pypardiso==0.3.3
+pythreejs==2.3.0
+docopt==0.6.2
+matplotlib==3.5.1
+jupyter==1.0.0
+gmsh==4.9.2
+fmm3dpy==1.0.0
+git+https://github.com/simnibs/simnibs@v3.2.5
+git+https://github.com/wujian16/Cornell-MOE

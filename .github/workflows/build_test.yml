@@ -1,45 +1,35 @@
-name: Build-Docs
+name: Build-Docker-Test
 
 on:
   push:
     branches:
-      main
-
+      - master
 
 jobs:
-  deploy_docs:
-    name: Install fieldopt
+  build:
+    name: Build Docker Image
     runs-on: ubuntu-latest
-  steps:
-    - name: Setup Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.8
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Build Docker image
+        run: docker build -t local .
 
-    - name: actions/cache@v2
-      with:
-        path: ~/.cache/pip
-        key: ${ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
+      - name: Use Docker image to build documentation
+        run: |
+          # Generate documentation
+          docker run \
+           -v $GITHUB_WORKSPACE/docs/:/source 
+           -v $GITHUB_WORKSPACE/docs/_build:/build \
+            local:latest "sphinx-build -M html \
+            /source /build && ls /build"
 
-    - name: Install package
-      run: |
-        pip install -r requirements.txt
-        pip install -q .[docs]
-
-    - name: Build docs
-      run: |
-        make -C docs/ html
-
-    - name: Publish to gh-pages
-      if: (github.event_name == "push" || github.event_name == "release") && ${{ !env.ACT }}
-      uses: JamesIves/github-pages-deploy-action@3.7.1
-      with:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        BRANCH: gh-pages
-        FOLDER: docs/_build/html
-        CLEAN: true
+      - name: Publish to GH-pages
+        if ${{ !env.ACT }}
+        uses: JamesIves/github-pages-deploy-action@3.7.1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: gh-pages
+          FOLDER: docs/_build/html
+          CLEAN: true

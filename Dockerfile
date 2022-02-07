@@ -1,4 +1,4 @@
-FROM ubuntu:16.04
+FROM python:3.7-buster
 
 RUN apt-get update && \
 	apt-get install -y --no-install-recommends \
@@ -17,16 +17,8 @@ RUN apt-get update && \
 	libxft2 \
 	libxinerama1 \
 	curl \
-	gfortran && \
-	git clone https://github.com/wujian16/Cornell-MOE.git \
-	&& add-apt-repository ppa:deadsnakes/ppa \
-	&& apt-get update \
-	&& apt-get install -y --no-install-recommends python3.7 python3.7-dev \
-	&& curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py \
-	&& python3.7 /get-pip.py && rm /get-pip.py \
-	&& rm /usr/bin/python3 /usr/bin/python \
-	&& ln -s /usr/bin/python3.7 /usr/bin/python3 \
-	&& ln -s /usr/bin/python3.7 /usr/bin/python
+	gfortran \
+	&& git clone https://github.com/wujian16/Cornell-MOE.git
 
 #Set up environment for installing Cornell-MOE
 ENV	MOE_CC_PATH=/usr/bin/gcc \
@@ -37,25 +29,26 @@ ENV	MOE_CC_PATH=/usr/bin/gcc \
 # Force emcee version as newer ones have issues w/linearly dependent walkers
 # Set up Field Optimization package
 
-RUN	pip install -f https://github.com/simnibs/simnibs/releases/tag/v3.1.2 simnibs \
-	&& pip install future \
+# MOE/SimNIBS require specialized installs
+RUN pip install --upgrade pip
+COPY requirements.txt .
+RUN cat requirements.txt | grep -v simnibs | grep -v MOE | xargs pip install
+
+ARG SIMNIBS_VER="v3.2.5"
+RUN pip install -f https://github.com/simnibs/simnibs/releases/tag/${SIMNIBS_VER} simnibs
+
+RUN pip install future \
 	&& cd /Cornell-MOE \
 	&& pip install -r requirements.txt \
-	&& python ./setup.py install \
-	&& pip install jupyter>=6.1.5 numba matplotlib \
-	docopt sklearn emcee==2.2.1 nilearn \
-	pythreejs wrapt \
-	https://github.com/skoch9/meshplot/archive/0.4.0.tar.gz
+	&& pip install .
 
-ARG	BRANCH="master"
+RUN pip install https://github.com/skoch9/meshplot/archive/0.4.0.tar.gz
+
+ARG	COMMIT_SHA=""
 ARG	PIP_FLAGS
-ADD	https://api.github.com/repos/jerdra/fieldopt/git/refs/heads/${BRANCH} version.json
-RUN	git clone -b ${BRANCH} https://github.com/jerdra/fieldopt.git \
+RUN	git clone https://github.com/jerdra/fieldopt.git \
 	&& cd fieldopt \
-	&& pip install -r requirements.txt \
-	&& pip install ${PIP_FLAGS} .[all] \
-	&& pip install --upgrade gmsh
+	&& git checkout ${COMMIT_SHA} \
+	&& pip install ${PIP_FLAGS} .[all]
 
-ENV	PYTHONPATH=$PYTHONPATH:/Cornell-MOE
-
-ENTRYPOINT /bin/bash
+ENTRYPOINT ["/bin/bash", "-c"]
