@@ -1,0 +1,23 @@
+name: Build-Docker-Test
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Build Docker image
+        run: docker build -t local .
+
+      - name: Use Docker image to build documentation
+        run: |
+          docker run -v $PWD:/fieldopt \
+            local:latest "sphinx-build -M html \
+            /fieldopt/docs/ /fieldopt/docs/_build"
