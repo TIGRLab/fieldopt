@@ -21,7 +21,7 @@ jobs:
           # Generate documentation
           docker run \
            -v $GITHUB_WORKSPACE:/fieldopt \
-            local:latest "cd /fieldopt && make html"
+            local:latest "cd /fieldopt/docs && make html"
 
       - name: Publish to GH-pages
         if: ${{ !env.ACT }}
