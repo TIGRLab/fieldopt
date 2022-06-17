@@ -81,6 +81,7 @@ class BayesianMOEOptimizer(IterableOptimizer):
                  sgd_params=DEFAULT_SGD_PARAMS,
                  maximize=False,
                  max_iterations=None,
+                 min_iterations=None,
                  epsilon=1e-3):
         '''
         Arguments:
@@ -97,6 +98,10 @@ class BayesianMOEOptimizer(IterableOptimizer):
                 Gradient Descent parameters (see: cornell MOE's
                 GradientDescentParameters)
             maximize (bool): Maximize if true, else minimize
+            max_iterations (int): Maximum number of iterations before
+              stopping optimization
+            min_iterations (int): Perform at least `min_iterations` before
+              stopping optimizations
             epsilon (float): Standard deviation convergence threshold
         '''
 
@@ -107,7 +112,13 @@ class BayesianMOEOptimizer(IterableOptimizer):
         self.dims = bounds.shape[0]
         self.best_point_history = []
         self.convergence_buffer = deque(maxlen=minimum_samples)
+
+        if max_iterations < min_iterations:
+            raise ValueError("Minimum number of iterations exceeds "
+                             "maximum number of iterations!")
+
         self.max_iter = max_iterations
+        self.min_iter = min_iterations
 
         # non-C++ wrapper needed since it has added functionality
         # at cost of speed
@@ -167,7 +178,6 @@ class BayesianMOEOptimizer(IterableOptimizer):
         Returns:
             gp (GaussianProcessLogLikelihoodMCMC): :math:`GP` model
         '''
-        # TODO: Logging
         if self.gp_loglikelihood is None:
             logging.warning("Model has not been initialized "
                             "Use .initialize_model() or .step() to "
@@ -207,7 +217,8 @@ class BayesianMOEOptimizer(IterableOptimizer):
         `self.min_samples` is below `self.epsilon`
 
         Returns:
-            converged (bool): False if stop criterion has not been met, else True
+            converged (bool): False if stop criterion has not been met,
+            else True
         '''
         # Minimum number of iterations have not been met
         if (self.max_iter is not None) and (self.iteration == self.max_iter):
@@ -216,6 +227,9 @@ class BayesianMOEOptimizer(IterableOptimizer):
             return True
 
         if not self._buffer_filled:
+            return False
+
+        if self.min_iter is not None and (self.iteration < self.min_iter):
             return False
 
         if self.gp_loglikelihood is None:
@@ -387,7 +401,8 @@ class BayesianMOEOptimizer(IterableOptimizer):
 def get_default_tms_optimizer(f,
                               num_samples,
                               minimum_samples=10,
-                              max_iterations=None):
+                              max_iterations=None,
+                              min_iterations=None):
     '''
     Construct BayesianMOEOptimizer using pre-configured
     prior hyperparameters
@@ -421,7 +436,8 @@ def get_default_tms_optimizer(f,
                                 minimum_samples=minimum_samples,
                                 prior=DEFAULT_PRIOR,
                                 maximize=True,
-                                max_iterations=max_iterations)
+                                max_iterations=max_iterations,
+                                min_iterations=min_iterations)
 
 
 def _gen_sample_from_qei(gp,
