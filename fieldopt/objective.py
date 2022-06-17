@@ -57,7 +57,7 @@ class FieldFunc():
         self.model = head_model
         self.domain = sampling_domain
 
-        if tet_weights:
+        if tet_weights is not None:
             self.tw = tet_weights[np.where(tet_weights)]
         else:
             logger.warning("No weights provided for score function"
@@ -67,7 +67,7 @@ class FieldFunc():
         # Control for coil file-type and SimNIBS changing convention
         self.normflip = coil.endswith('.nii.gz')
 
-        roi = head_model.get_tet_ids(2)[0][np.where(tet_weights)]
+        roi = head_model.get_tet_ids(2)[0][np.where(self.tw)]
 
         self.simulator = _Simulator(head_model, solver, didt, coil, roi,
                                     nworkers, nthreads)
@@ -225,7 +225,6 @@ class _Simulator:
                  roi=None,
                  num_workers=None,
                  nthreads=None):
-
         """
         Arguments:
             model (fieldopt.geometry.mesh_wrapper.HeadModel): Head model
