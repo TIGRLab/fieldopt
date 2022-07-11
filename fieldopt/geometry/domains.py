@@ -123,7 +123,7 @@ class QuadraticDomain():
 
         return sample, iR, C, n
 
-    def place_coil(self, mesh, x, y, theta, flip_norm=True):
+    def place_coil(self, mesh, x, y, theta):
         '''
         Place coil on mesh surface
 
@@ -144,5 +144,4 @@ class QuadraticDomain():
         rot = R[:3, :3] @ preaff_rot
         n = R[:3, :3] @ preaff_norm
 
-        normflip = -1 if flip_norm else 1
-        return geometry.define_coil_orientation(sample, rot, normflip * n)
+        return geometry.define_coil_orientation(sample, rot, -1 * n)
