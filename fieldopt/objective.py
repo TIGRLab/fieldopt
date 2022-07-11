@@ -59,15 +59,12 @@ class FieldFunc():
 
         if tet_weights is not None:
             self.tw = tet_weights[np.where(tet_weights)]
+            roi = head_model.get_tet_ids(2)[0][np.where(tet_weights)]
         else:
             logger.warning("No weights provided for score function"
                            " setting to 0s!")
             self.tw = np.zeros_like(head_model.get_tet_ids(2)[0])
-
-        # Control for coil file-type and SimNIBS changing convention
-        self.normflip = coil.endswith('.nii.gz')
-
-        roi = head_model.get_tet_ids(2)[0][np.where(self.tw)]
+            roi = None
 
         self.simulator = _Simulator(head_model, solver, didt, coil, roi,
                                     nworkers, nthreads)
@@ -104,7 +101,7 @@ class FieldFunc():
 
         logger.info("Transforming inputs...")
         return [
-            self.domain.place_coil(self.model, *i, self.normflip)
+            self.domain.place_coil(self.model, *i)
             for i in input_list
         ]
 
@@ -180,7 +177,6 @@ class FieldFunc():
             wf_field = np.zeros_like(res.elmdata[0].value)
             wf_field[self.simulator.roi] = self.tw
             res.add_element_field(wf_field, 'weightfunction')
-            return
         else:
             logger.warning("Weightfunction was not set or is all"
                            " zeros! Not displaying in final result")
@@ -205,8 +201,7 @@ class FieldFunc():
         '''
 
         # Compute the coil affine matrix
-        coil_affine = self.domain.place_coil(self.model, *input_coord,
-                                             self.normflip)
+        coil_affine = self.domain.place_coil(self.model, *input_coord)
         n = coil_affine[:3, 2]
         p0 = coil_affine[:3, 3]
         p1 = p0 + (n * 200)
