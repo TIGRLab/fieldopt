@@ -229,7 +229,7 @@ class BayesianMOEOptimizer(IterableOptimizer):
         if not self._buffer_filled:
             return False
 
-        if self.min_iter is not None and (self.iteration < self.min_iter):
+        if (self.min_iter is not None) and (self.iteration < self.min_iter):
             return False
 
         if self.gp_loglikelihood is None:
