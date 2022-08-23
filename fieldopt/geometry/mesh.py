@@ -73,7 +73,45 @@ def closest_point2surf(p, coords):
     return coords[ind, :]
 
 
-@numba.njit(parallel=True)
+def get_neighbours(indices, triangles):
+    """
+    Return neighbouring vertices around `indices`
+
+    Arguments:
+        indices (ndarray): (V,) array to compute neighbourhood around
+        triangles (ndarray): (P,3) array of triangles
+
+    Returns:
+        neighbours (ndarray): (K,) array of neighbouring vertices including
+            the nodes in indices
+    """
+
+    result = get_relevant_triangles(indices, triangles)
+    connected_trigs = np.where(result)
+    return np.unique(triangles[connected_trigs, :].flatten())
+
+
+def get_ring(index, triangles, n_neighbours=2):
+    """
+    Return an N-ring of nodes around `index`
+
+    Arguments:
+        index (int): Index of central vertex
+        triangles (ndarray): (P,3) array of triangle vertices
+
+    Returns:
+        indices (ndarray): (K,) integer array containing node indices belonging
+            to n-ring around `index`
+    """
+
+    query_inds = [index]
+
+    for i in range(n_neighbours):
+        query_inds = get_neighbours(query_inds, triangles)
+
+    return query_inds
+
+
 def get_relevant_triangles(verts, triangles):
     '''
     Get set of all triangles in `triangles`
@@ -89,19 +127,10 @@ def get_relevant_triangles(verts, triangles):
     '''
 
     t_arr = np.zeros((triangles.shape[0]), dtype=np.int64)
-
-    for t in numba.prange(0, triangles.shape[0]):
-        for c in np.arange(0, 3):
-            for v in verts:
-
-                if triangles[t][c] == v:
-                    t_arr[t] = 1
-                    break
-
-            if t_arr[t] == 1:
-                break
-
-    return t_arr
+    t_arr += np.isin(triangles[:, 0], verts)
+    t_arr += np.isin(triangles[:, 1], verts)
+    t_arr += np.isin(triangles[:, 2], verts)
+    return np.clip(t_arr, 0, 1)
 
 
 def get_normals(point_tags, all_tags, coords, trigs):
