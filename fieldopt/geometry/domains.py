@@ -132,8 +132,6 @@ class QuadraticDomain():
             x (float): x coordinate of domain
             y (float): y coordinate of domain
             theta (float): Coil orientation
-            flip_norm (bool): Whether the normal should be flipped
-                when constructing the orientation matrix
 
         Returns:
             matsimnibs (ndarray): A matsimnibs orientation matrix

@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 FIELD_ENTITY = (3, 2)
 PIAL_ENTITY = (2, 1002)
-FIELDS = ['e']
+FIELDS = ['E']
 
 
 class FieldFunc():
@@ -35,6 +35,7 @@ class FieldFunc():
                  coil,
                  tet_weights=None,
                  didt=1e6,
+                 direction=None,
                  nworkers=1,
                  nthreads=None,
                  solver='pardiso'):
@@ -46,6 +47,9 @@ class FieldFunc():
             coil (str): TMS coil file (either dA/dt volume or
                 coil geometry)
             didt (float): Intensity of stimulation
+            direction (Optional[ndarray]): Project E-field to provided
+                [3,] direction then calculate magnitude. Will use
+                un-projected magnitude if not provided.
             nworkers (int): Number of workers to spawn for simulations
             nthreads (int): Maximum number of physical cores
                 for solver to use [Default: use all]
@@ -70,6 +74,12 @@ class FieldFunc():
                                     nworkers, nthreads)
 
         self.volumes = self.mesh.elements_volumes_and_areas().value[roi]
+
+        if direction is None:
+            self.direction = direction
+        else:
+            self.direction = np.zeros((3, 1), dtype=float)
+            self.direction[:, 0] = direction / np.linalg.norm(direction)
 
     def __repr__(self):
         '''
@@ -100,10 +110,37 @@ class FieldFunc():
         '''
 
         logger.info("Transforming inputs...")
-        return [
-            self.domain.place_coil(self.model, *i)
-            for i in input_list
-        ]
+        return [self.domain.place_coil(self.model, *i) for i in input_list]
+
+    def _compute_efield_magnitude(self, E, zero_negatives=False):
+        '''
+        Compute the signed magnitude of a (T,3) or (T,3,M)
+        E field matrix where:
+            - T: Number of tetrahedrons
+            - 3: X,Y,Z (RAS) E-field vector
+            - M: Number of TMS problems
+
+        Arguments:
+            E (ndarray): A (T,3) or (T,3,M) E-field matrix
+            zero_negatives (bool): Set negative values to zero
+
+        Returns:
+            norms (ndarray): (T,M) norms array. If a 2D E-field
+                array was provided, then a (T,1) array is produced
+        '''
+
+        if self.direction is None:
+            norms = np.linalg.norm(E, axis=1)
+        else:
+            if len(E.shape) == 2:
+                norms = E @ self.direction
+            elif len(E.shape) == 3:
+                norms = np.einsum('ijk,jl->ilk', E, self.direction)
+                norms = np.squeeze(norms, axis=2)
+
+        if zero_negatives:
+            norms = norms.clip(min=0)
+        return norms
 
     def evaluate(self, input_list, out_basename=None):
         '''
@@ -124,8 +161,8 @@ class FieldFunc():
         logger.info('Running simulations...')
         E = self.simulator.run_simulation(self.mesh, matsimnibs)
         logger.info('Successfully completed simulations!')
-        scores = (np.linalg.norm(E, axis=1) * self.tw[:, None] *
-                  self.volumes[:, None]).sum(axis=0)
+        norms = self._compute_efield_magnitude(E, zero_negatives=True)
+        scores = (norms * self.tw[:, None] * self.volumes[:, None]).sum(axis=0)
         return scores
 
     def visualize_evaluate(self,
@@ -134,8 +171,7 @@ class FieldFunc():
                            theta=None,
                            matsimnibs=None,
                            out_sim=None,
-                           out_geo=None,
-                           fields=FIELDS):
+                           out_geo=None):
         '''
         Generate a visualization of a TMS simulation on a given
         coordinate
@@ -148,7 +184,7 @@ class FieldFunc():
             out_sim (str): Output path for msh file
             out_geo (str): Output path for coil position file
             fields (List[str]): Fields to include in visualization
-                [Default: normE]
+                [Default: 'e']
 
         Note:
             If both :math:`(x,y,theta)` and `matsimnibs` are provided,
@@ -169,8 +205,17 @@ class FieldFunc():
 
         res = self.simulator.run_full_simulation(self.mesh,
                                                  matsimnibs,
-                                                 fields=fields,
                                                  fn_geo=out_geo)
+        ind = _get_elmdata_index(res.elmdata, 'E')
+        E = res.elmdata.pop(ind)
+        magnitude = self._compute_efield_magnitude(E.value,
+                                                   zero_negatives=True)
+
+        if self.direction is None:
+            label = 'normE'
+        else:
+            label = 'direction_normE'
+        res.add_element_field(magnitude, label)
 
         if np.any(np.where(self.tw)[0]):
             logger.info("Appending weightfunction to output")
@@ -421,3 +466,12 @@ class _Simulator:
 
         # Return resulting mesh object
         return res
+
+
+def _get_elmdata_index(elmdata_arr, fieldname):
+    try:
+        return [
+            i for i, ed in enumerate(elmdata_arr) if ed.field_name == fieldname
+        ][0]
+    except IndexError:
+        raise
